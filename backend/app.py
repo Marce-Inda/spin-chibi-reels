@@ -1,5 +1,19 @@
-import os
-from fastapi import FastAPI, HTTPException
+import time
+
+def cleanup_old_files(directory: str, max_age_seconds: int = 3 * 24 * 3600):
+    """Deletes output video files and cached assets older than 3 days (72 hours)."""
+    now = time.time()
+    if not os.path.exists(directory):
+        return
+    for filename in os.listdir(directory):
+        filepath = os.path.join(directory, filename)
+        if os.path.isfile(filepath):
+            file_age = now - os.path.getmtime(filepath)
+            if file_age > max_age_seconds:
+                try:
+                    os.remove(filepath)
+                except Exception as e:
+                    print(f"Error removing old file {filepath}: {e}")
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -91,6 +105,8 @@ async def create_script(req: ScriptRequest):
 @app.post("/api/render-reel")
 async def render_reel(req: RenderRequest):
     try:
+        cleanup_old_files(config.OUTPUT_DIR)
+        cleanup_old_files(os.path.join(config.OUTPUT_DIR, "cache"))
         output_file = await MediaEngine.assemble_reel(req.scenes, output_filename="casino_reel.mp4")
         return {
             "status": "success",
