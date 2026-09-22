@@ -1,0 +1,22 @@
+# Python & Environment
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+
+# Media outputs & rendering cache
+output/temp_render/
+output/*.mp4
+output/*.png
+output/*.mp3
+output/*.wav
+assets/
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+*.log

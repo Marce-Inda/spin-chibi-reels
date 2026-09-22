@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Casino Reels AI — Sistema de Agentes de Video</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-wrapper">
+        <!-- Top Header Navbar -->
+        <header class="navbar">
+            <div class="brand">
+                <div class="brand-icon">🎰</div>
+                <div class="brand-text">
+                    <h1>CasinoReels<span>.AI</span></h1>
+                    <p>Sistema Autónomo de Agentes Multi-Escena (3D Chibi Moderno)</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <div class="credit-pill" id="creditStatus">
+                    <span class="status-dot online"></span> OpenCloud / API Conectada
+                </div>
+                <button class="btn btn-outline" id="btnConfigModal">⚙️ Configurar Créditos</button>
+            </div>
+        </header>
+
+        <!-- Main Dashboard Layout -->
+        <main class="dashboard-grid">
+            <!-- Left Panel: Workflow & Controls -->
+            <section class="panel workflow-panel">
+                <div class="panel-header">
+                    <h2>✨ 1. Concepto e Historia de Casino</h2>
+                    <span class="badge">Agente Guionista Cómico</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="userPrompt">Idea de la historia o escena cómico-ganadora:</label>
+                    <textarea id="userPrompt" rows="3" placeholder="Ej: Me distraje tomando una soda en el casino, tropecé y apreté el botón rojo de Apuesta Máxima..."></textarea>
+                </div>
+
+                <div class="prompt-chips">
+                    <button class="chip" onclick="setPrompt('Tropecé con la palanca de tragamonedas mientras bailaba de felicidad y activé el Jackpot')">💃 Baile & Tropezón</button>
+                    <button class="chip" onclick="setPrompt('Estornudé y toqué el botón de apuesta máxima por error con la frente')">🤧 Estornudo de la Suerte</button>
+                    <button class="chip" onclick="setPrompt('Confundí la máquina tragamonedas con un cajero automático y gané \$100,000')">🏧 Confusión Millonaria</button>
+                </div>
+
+                <button class="btn btn-primary btn-block" id="btnGenerateStory">
+                    <span class="btn-text">🚀 Generar Historia Cósmica con Agente AI</span>
+                    <span class="spinner hidden"></span>
+                </button>
+
+                <div class="story-box hidden" id="storyBox">
+                    <h3>📖 Historia Generada (Con final feliz):</h3>
+                    <p id="storyContent"></p>
+                    <button class="btn btn-secondary btn-block mt-12" id="btnCreateScript">
+                        🎬 Crear Guion y Prompts 3D Chibi (Paso 2)
+                    </button>
+                </div>
+
+                <!-- Scene Beat Editor -->
+                <div class="scenes-container hidden" id="scenesContainer">
+                    <div class="panel-header mt-24">
+                        <h2>🎬 2. Escenas y Prompts 3D Chibi (9:16)</h2>
+                        <span class="badge badge-accent">Visual Agent</span>
+                    </div>
+
+                    <div id="scenesList" class="scenes-list">
+                        <!-- Rendered dynamically by JS -->
+                    </div>
+
+                    <button class="btn btn-accent btn-block mt-20" id="btnRenderReel">
+                        ✨ Renderizar Reel Completo (Audio + SFX + Video 9:16)
+                    </button>
+                </div>
+            </section>
+
+            <!-- Right Panel: Phone Preview 9:16 Reel Player -->
+            <section class="panel preview-panel">
+                <div class="panel-header">
+                    <h2>📱 Vista Previa TikTok / Instagram Reel (9:16)</h2>
+                    <span class="badge badge-gold">Final Render</span>
+                </div>
+
+                <div class="phone-mockup">
+                    <div class="phone-screen">
+                        <div class="phone-notch"></div>
+
+                        <!-- Video Player Area -->
+                        <div class="video-container" id="videoContainer">
+                            <div class="placeholder-player" id="playerPlaceholder">
+                                <div class="chibi-preview-icon">🎰</div>
+                                <h3>Tu Reel 9:16 aparecerá aquí</h3>
+                                <p>Haz clic en "Generar Historia" para iniciar el flujo multi-agente.</p>
+                                <div class="chibi-features">
+                                    <span>✨ Estilo 3D Chibi Expresivo</span>
+                                    <span>👔 Ropa Moderna de Gala</span>
+                                    <span>💰 Efectos de Monedas y Luces Neón</span>
+                                </div>
+                            </div>
+                            <video id="reelVideoPlayer" class="hidden" controls loop playsinline></video>
+                        </div>
+
+                        <!-- Reel Overlay Metadata -->
+                        <div class="reel-overlay-ui hidden" id="reelOverlayUi">
+                            <div class="reel-sound-tag">🎵 Sonido Original — Casino Winner 3D</div>
+                            <div class="reel-caption">¡Equivocaciones que valen oro! 🏆💰 #CasinoWin #SlotMachine #Jackpot #3DChibi #ViralReels</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="download-bar hidden" id="downloadBar">
+                    <a id="downloadBtn" href="/api/download-reel" download class="btn btn-gold btn-block">
+                        ⬇️ Descargar Reel en MP4 (1080x1920)
+                    </a>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- API Key Configuration Modal -->
+    <div class="modal-overlay hidden" id="configModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>⚙️ Configuración de Créditos y APIs Cloud</h3>
+                <button class="modal-close" id="btnCloseModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Ingresa tus claves de API para habilitar la generación remota con OpenRouter o APIs de IA:</p>
+                
+                <div class="form-group">
+                    <label for="openrouterKey">OpenRouter / OpenAI API Key (Historias y Guion):</label>
+                    <input type="password" id="openrouterKey" placeholder="sk-or-v1-...">
+                </div>
+
+                <div class="form-group">
+                    <label for="replicateKey">Replicate / Fal.ai API Key (Render 3D HD / Video):</label>
+                    <input type="password" id="replicateKey" placeholder="r8_... / fal_...">
+                </div>
+                
+                <div class="info-alert">
+                    💡 <b>Nota:</b> Si dejas los campos vacíos, el sistema usará el motor interno de previsualización 3D Chibi con sintetizador de voz EdgeTTS en español para pruebas inmediatas.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="btnSaveConfig">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
