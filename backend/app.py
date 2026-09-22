@@ -31,6 +31,8 @@ class ConfigUpdateRequest(BaseModel):
     replicate_key: Optional[str] = ""
     fal_key: Optional[str] = ""
     elevenlabs_key: Optional[str] = ""
+    llm_model: Optional[str] = ""
+    video_model: Optional[str] = ""
 
 @app.get("/api/health")
 def health_check():
@@ -52,7 +54,11 @@ def update_configuration(req: ConfigUpdateRequest):
         config.FAL_API_KEY = req.fal_key
     if req.elevenlabs_key:
         config.ELEVENLABS_API_KEY = req.elevenlabs_key
-    return {"message": "Configuración de credenciales actualizada exitosamente."}
+    if req.llm_model:
+        config.LLM_MODEL = req.llm_model
+    if req.video_model:
+        config.VIDEO_MODEL = req.video_model
+    return {"message": "Configuración de credenciales y modelos actualizada exitosamente."}
 
 @app.post("/api/generate-story")
 async def generate_story(req: StoryRequest):

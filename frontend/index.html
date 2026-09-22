@@ -130,20 +130,40 @@
                 <button class="modal-close" id="btnCloseModal">&times;</button>
             </div>
             <div class="modal-body">
-                <p>Ingresa tus claves de API para habilitar la generación remota con OpenRouter o APIs de IA:</p>
+                <p>Configura tus claves y selecciona los modelos de IA (incluyendo modelos chinos de alto rendimiento):</p>
                 
                 <div class="form-group">
-                    <label for="openrouterKey">OpenRouter / OpenAI API Key (Historias y Guion):</label>
+                    <label for="llmSelect">Modelo de Lenguaje (Historias y Guiones):</label>
+                    <select id="llmSelect" class="form-select">
+                        <option value="deepseek/deepseek-chat">🇨🇳 DeepSeek V3 (Súper económico y creativo)</option>
+                        <option value="qwen/qwen-2.5-72b-instruct">🇨🇳 Qwen 2.5 72B (Alibaba - Excelente en español)</option>
+                        <option value="google/gemini-2.5-flash" selected>⚡ Gemini 2.5 Flash (Ultrarrápido)</option>
+                        <option value="meta-llama/llama-3.3-70b-instruct">🦙 Llama 3.3 70B</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="videoModelSelect">Modelo de Generación de Video / Imagen:</label>
+                    <select id="videoModelSelect" class="form-select">
+                        <option value="fal-ai/minimax-video">🇨🇳 MiniMax / Hailuo AI (Excelente animación 3D)</option>
+                        <option value="fal-ai/kling-video">🇨🇳 Kling AI (Kuaishou - Movimiento realista)</option>
+                        <option value="fal-ai/cogvideox-5b">🇨🇳 CogVideoX 5B (Open Source)</option>
+                        <option value="fal-ai/flux/schnell" selected>🎨 Flux Schnell (Generación ultra rápida de imagen 9:16)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="openrouterKey">OpenRouter / OpenAI API Key:</label>
                     <input type="password" id="openrouterKey" placeholder="sk-or-v1-...">
                 </div>
 
                 <div class="form-group">
-                    <label for="replicateKey">Replicate / Fal.ai API Key (Render 3D HD / Video):</label>
-                    <input type="password" id="replicateKey" placeholder="r8_... / fal_...">
+                    <label for="replicateKey">Fal.ai / Replicate API Key (Render 3D HD / Video):</label>
+                    <input type="password" id="replicateKey" placeholder="fal_... / r8_...">
                 </div>
                 
                 <div class="info-alert">
-                    💡 <b>Nota:</b> Si dejas los campos vacíos, el sistema usará el motor interno de previsualización 3D Chibi con sintetizador de voz EdgeTTS en español para pruebas inmediatas.
+                    💡 <b>Nota:</b> Modelos como <b>DeepSeek V3</b> en OpenRouter o <b>MiniMax / Kling</b> en Fal.ai ofrecen una calidad excepcional para animaciones 3D Chibi y secuencias de casino.
                 </div>
             </div>
             <div class="modal-footer">

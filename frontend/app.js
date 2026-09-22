@@ -41,15 +41,22 @@ document.addEventListener("DOMContentLoaded", () => {
     btnSaveConfig.addEventListener("click", () => {
         const openrouterKey = document.getElementById("openrouterKey").value;
         const replicateKey = document.getElementById("replicateKey").value;
+        const llmModel = document.getElementById("llmSelect").value;
+        const videoModel = document.getElementById("videoModelSelect").value;
         
         fetch("/api/update-config", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ openrouter_key: openrouterKey, replicate_key: replicateKey })
+            body: JSON.stringify({ 
+                openrouter_key: openrouterKey, 
+                replicate_key: replicateKey,
+                llm_model: llmModel,
+                video_model: videoModel
+            })
         })
         .then(r => r.json())
         .then(res => {
-            alert("Credenciales guardadas correctamente.");
+            alert("Credenciales y modelos guardados correctamente.");
             configModal.classList.add("hidden");
         });
     });
