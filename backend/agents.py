@@ -33,15 +33,28 @@ class StoryAgent:
     """Generates funny casino stories featuring mistakes/blunders leading to a jackpot win."""
     
     @staticmethod
-    async def generate_story(user_idea: str = "", api_key: str = "") -> Dict[str, Any]:
+    async def generate_story_and_script(user_idea: str = "", api_key: str = "") -> Dict[str, Any]:
+        """Generates both story narrative AND 4-5 JSON scenes in ONE single LLM call to save 50% token cost."""
         prompt = (
-            "Crea una micro-historia cómica e inspiradora para un Reel/TikTok (15 a 25 segundos) sobre un casino y tragamonedas.\n"
-            "REQUISITO OBLIGATORIO: El personaje debe cometer una equivocación, torpeza o error gracioso "
-            "(ejemplo: tropezarse y presionar el botón de Apuesta Máxima, estornudar y tocar la pantalla, "
-            "confundir la tragamonedas con una máquina de peluches, etc.), pero esa equivocación desencadena "
-            "de manera sorpresiva e imprevista el GRAN JACKPOT O PREMIO MAYOR.\n"
-            "El tono debe ser muy divertido, lleno de emoción y con final súper feliz de victoria.\n\n"
-            f"Idea base del usuario: '{user_idea if user_idea else 'Un día con suerte inesperada en el casino'}'"
+            "Crea un guion completo de Reel/TikTok (15-20s) cómico para casino.\n"
+            "REQUISITO OBLIGATORIO: El personaje debe cometer un error gracioso o torpeza "
+            "(tropezar, estornudar, presionar Apuesta Máxima por error), pero esa equivocación "
+            "desencadena sorpresivamente el GRAN JACKPOT DE $100,000.\n\n"
+            "Devuelve la respuesta estrictamente en este formato JSON (sin texto extra):\n"
+            "{\n"
+            "  \"story_text\": \"Resumen de la historia en 2 oraciones\",\n"
+            "  \"scenes\": [\n"
+            "    {\n"
+            "      \"id\": 1,\n"
+            "      \"duration\": 4.0,\n"
+            "      \"narration\": \"Texto en español para voz en off\",\n"
+            "      \"visual_description\": \"Cute 3D chibi character in fashionable modern luxury blazer...\",\n"
+            "      \"sound_effect\": \"slot_spin / oops_buzzer / panic_gasp / jackpot_coins\",\n"
+            "      \"text_overlay\": \"¡SUBTÍTULO EN MAYÚSCULAS!\"\n"
+            "    }\n"
+            "  ]\n"
+            "}\n\n"
+            f"Idea base: '{user_idea if user_idea else 'Un día con suerte inesperada en el casino'}'"
         )
         
         effective_key = api_key or config.OPENROUTER_API_KEY or config.OPENAI_API_KEY
@@ -56,27 +69,32 @@ class StoryAgent:
                     data = {
                         "model": config.LLM_MODEL,
                         "messages": [
-                            {"role": "system", "content": "Eres un guionista experto en Reels cómicos virales de TikTok/Instagram para casinos y juegos."},
+                            {"role": "system", "content": "Eres un director de cine corto viral para TikTok/Reels."},
                             {"role": "user", "content": prompt}
                         ],
+                        "response_format": {"type": "json_object"},
                         "temperature": 0.8
                     }
                     resp = await client.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
                     if resp.status_code == 200:
-                        content = resp.json()["choices"][0]["message"]["content"]
-                        return {"story_text": content}
+                        raw = resp.json()["choices"][0]["message"]["content"]
+                        parsed = json.loads(raw)
+                        scenes = [Scene(**s) for s in parsed.get("scenes", [])]
+                        return {
+                            "story_text": parsed.get("story_text", ""),
+                            "scenes": scenes
+                        }
             except Exception as e:
-                print(f"Error calling LLM API: {e}")
-                
-        # Fallback offline templates if API key is not provided yet
-        return {
-            "story_text": (
-                "Un joven elegante entra al casino buscando una máquina tragamonedas. "
-                "Al intentar tomar su bebida, tropieza accidentalmente y presiona con el codo el botón de 'APUESTA MÁXIMA'. "
-                "Entra en pánico con los ojos abiertos de par en par... ¡pero la tragamonedas empieza a encender todas sus luces neón "
-                "y estalla en una lluvia de monedas de oro entregándole el Jackpot de $100,000!"
-            )
-        }
+                print(f"Error in 1-call story+script: {e}")
+
+        # Fallback offline generator if no API key
+        fallback_story = (
+            "Un joven elegante entra al casino buscando una tragamonedas. "
+            "Al intentar tomar su bebida, tropieza accidentalmente y presiona con el codo el botón de 'APUESTA MÁXIMA'. "
+            "Entra en pánico... ¡pero la máquina estalla en una lluvia de monedas entregándole el Jackpot de $100,000!"
+        )
+        fallback_scenes = await ScriptAgent.create_script(fallback_story)
+        return {"story_text": fallback_story, "scenes": fallback_scenes}
 
 class ScriptAgent:
     """Transforms a story into a structured scene-by-scene Reel script."""

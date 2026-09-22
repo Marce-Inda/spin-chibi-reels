@@ -26,13 +26,50 @@ document.addEventListener("DOMContentLoaded", () => {
     const btnCloseModal = document.getElementById("btnCloseModal");
     const btnSaveConfig = document.getElementById("btnSaveConfig");
 
-    // Check backend health
-    fetch("/api/health")
-        .then(r => r.json())
-        .then(data => {
-            console.log("Backend Health:", data);
-        })
-        .catch(err => console.error("Error connecting to backend API:", err));
+    // 1-Click Fast Reel Generator
+    const btnFastReel = document.getElementById("btnFastReel");
+    btnFastReel.addEventListener("click", async () => {
+        const userPrompt = document.getElementById("userPrompt").value;
+        const openrouterKey = document.getElementById("openrouterKey").value;
+        
+        btnFastReel.disabled = true;
+        btnFastReel.querySelector(".btn-text").innerText = "⚡ Generando Reel Completo (4.3s)...";
+        btnFastReel.querySelector(".spinner").classList.remove("hidden");
+
+        try {
+            const res = await fetch("/api/generate-full-reel", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ user_prompt: userPrompt, api_key: openrouterKey })
+            });
+            const data = await res.json();
+
+            if (data.status === "success") {
+                currentStory = data.story_text;
+                currentScenes = data.scenes;
+                
+                storyContent.innerText = currentStory;
+                storyBox.classList.remove("hidden");
+                renderScenes(currentScenes);
+                scenesContainer.classList.remove("hidden");
+
+                // Play in phone video player
+                playerPlaceholder.classList.add("hidden");
+                reelVideoPlayer.src = data.video_url + "?t=" + new Date().getTime();
+                reelVideoPlayer.classList.remove("hidden");
+                reelVideoPlayer.play();
+
+                reelOverlayUi.classList.remove("hidden");
+                downloadBar.classList.remove("hidden");
+            }
+        } catch (e) {
+            alert("Error en 1-Click Reel Generator: " + e.message);
+        } finally {
+            btnFastReel.disabled = false;
+            btnFastReel.querySelector(".btn-text").innerText = "⚡ Crear Reel Completo en 1 Clic (Historia + Audio + Video 9:16)";
+            btnFastReel.querySelector(".spinner").classList.add("hidden");
+        }
+    });
 
     // Modal Events
     btnConfigModal.addEventListener("click", () => configModal.classList.remove("hidden"));

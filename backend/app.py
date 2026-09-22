@@ -62,8 +62,25 @@ def update_configuration(req: ConfigUpdateRequest):
 
 @app.post("/api/generate-story")
 async def generate_story(req: StoryRequest):
-    result = await StoryAgent.generate_story(user_idea=req.user_prompt, api_key=req.api_key)
+    result = await StoryAgent.generate_story_and_script(user_idea=req.user_prompt, api_key=req.api_key)
     return result
+
+@app.post("/api/generate-full-reel")
+async def generate_full_reel(req: StoryRequest):
+    """1-Click Generation: Generates story, script, prompts, and renders 9:16 Reel video in 1 request."""
+    try:
+        story_and_script = await StoryAgent.generate_story_and_script(user_idea=req.user_prompt, api_key=req.api_key)
+        scenes = VisualDesignAgent.generate_prompts(story_and_script.get("scenes", []))
+        output_file = await MediaEngine.assemble_reel(scenes, output_filename="casino_reel.mp4")
+        return {
+            "status": "success",
+            "story_text": story_and_script.get("story_text", ""),
+            "scenes": [s.model_dump() for s in scenes],
+            "video_url": "/api/download-reel",
+            "file_path": output_file
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error en 1-Click Reel Generator: {str(e)}")
 
 @app.post("/api/create-script")
 async def create_script(req: ScriptRequest):

@@ -196,11 +196,23 @@ textarea:focus, input:focus {
     box-shadow: 0 0 12px rgba(157, 78, 221, 0.3);
 }
 
-.prompt-chips {
+.divider {
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 20px;
+    align-items: center;
+    text-align: center;
+    margin: 14px 0;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.divider::before, .divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.divider span {
+    padding: 0 10px;
 }
 
 .chip {
