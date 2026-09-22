@@ -18,17 +18,19 @@ FRONTEND_DIR = os.path.join(config.BASE_DIR, "frontend")
 OUTPUT_DIR = config.OUTPUT_DIR
 
 def cleanup_old_files(directory: str, max_age_seconds: int = config.RETENTION_SECONDS):
-    """Deletes output video files and cached assets older than 15 days (360 hours)."""
+    """Deletes ONLY final rendered video files (.mp4) older than 15 days, permanently preserving reusable audio/visual assets in cache."""
     now = time.time()
     if not os.path.exists(directory):
         return
     for filename in os.listdir(directory):
         filepath = os.path.join(directory, filename)
-        if os.path.isfile(filepath):
+        # Only clean final .mp4 videos, preserve all reusable cache assets
+        if os.path.isfile(filepath) and filename.endswith(".mp4"):
             file_age = now - os.path.getmtime(filepath)
             if file_age > max_age_seconds:
                 try:
                     os.remove(filepath)
+                    print(f"🗑️ Cleaned up old reel video: {filename}")
                 except Exception as e:
                     print(f"Error removing old file {filepath}: {e}")
 
@@ -224,7 +226,6 @@ async def create_script(req: ScriptRequest):
 async def render_reel(req: RenderRequest):
     try:
         cleanup_old_files(OUTPUT_DIR)
-        cleanup_old_files(os.path.join(OUTPUT_DIR, "cache"))
         output_file = await MediaEngine.assemble_reel(req.scenes, output_filename="casino_reel.mp4")
         return {
             "status": "success",
