@@ -1,26 +1,43 @@
 import json
 import httpx
-import asyncio
+import random
 from typing import List, Dict, Any
 from pydantic import BaseModel
 from config import config
 
 class Scene(BaseModel):
     id: int
-    duration: float  # seconds
-    narration: str   # Spanish voiceover text
-    visual_description: str  # visual scene beat
-    sound_effect: str  # e.g., 'slot_spin', 'oops_buzzer', 'jackpot_coins', 'cheer'
-    text_overlay: str  # On-screen caption
-    image_prompt: str = "" # Generated prompt by VisualDesignAgent
+    duration: float
+    narration: str
+    visual_description: str
+    sound_effect: str
+    text_overlay: str
+    image_prompt: str = ""
 
-class StoryReel(BaseModel):
-    title: str
-    concept: str
-    moral: str
-    scenes: List[Scene]
+# List of 20 creative comedy casino blunder premises
+COMEDY_CASINO_PREMISES = [
+    "Tropecé bailando de felicidad y presioné la Apuesta Máxima con la rodilla",
+    "Estornudé tan fuerte que mi frente tocó la pantalla en la máquina de 777",
+    "Confundí la tragamonedas con una máquina expendedora de sodas",
+    "Traté de tomarme una selfie y se me cayó el teléfono sobre el botón rojo",
+    "Estaba aplaudiendo por la suerte de otro y le pegué a la palanca equivocada",
+    "Intenté limpiar un chicle de la pantalla y activé el giro estelar",
+    "Buscaba mis lentes en el bolsillo y apreté la pantalla de Apuesta Máxima",
+    "Se me cayó una ficha de oro, me agaché a buscarla y golpeé la máquina ganadora",
+    "Apreté el botón al ritmo de la música del casino sin mirar la pantalla",
+    "Pensé que la máquina estaba apagada y le di un golpecito de suerte",
+    "Solté mi vaso de coctel de la impresión y cayó justo en el botón de Spin",
+    "Estaba saludando a un amigo a lo lejos y mi codo presionó la tragamonedas",
+    "Confundí la máquina de peluches con la tragamonedas de Jackpot",
+    "Iba a apostar 50 centavos y por no traer lentes le puse $50 de golpe",
+    "Giré para ver el reloj y mi codo activó la ráfaga de giros dorados",
+    "Mi amuleto de la suerte cayó sobre la pantalla táctil en el momento exacto",
+    "Me asustó el sonido de otra máquina y salté presionando el botón rojo",
+    "Iba a sentarme, fallé la silla y al agarrarme de la máquina activé el Jackpot",
+    "Intenté ajustar mi chaqueta elegante y el puño rozó el botón de Max Bet",
+    "Le pedí permiso a la máquina con una reverencia y al levantarme toqué el Spin"
+]
 
-# Baseline Master Style Prompt for consistent 3D Chibi Modern aesthetics
 CHIBI_STYLE_BASELINE = (
     "3D chibi anime-inspired character, high quality 3D digital art rendering, "
     "huge expressive sparkling glossy eyes with star-like shine pupils, cute rosy cheeks, "
@@ -33,14 +50,15 @@ class StoryAgent:
     """Generates funny casino stories featuring mistakes/blunders leading to a jackpot win."""
     
     @staticmethod
-    async def generate_story_and_script(user_idea: str = "", api_key: str = "") -> Dict[str, Any]:
-        """Generates both story narrative AND 4-5 JSON scenes in ONE single LLM call to save 50% token cost."""
+    async def generate_story_and_script(user_idea: str = "", api_key: str = "", index: int = 0) -> Dict[str, Any]:
+        """Generates story + 4-5 JSON scenes with token & cost tracking for observability."""
+        chosen_idea = user_idea if user_idea else COMEDY_CASINO_PREMISES[index % len(COMEDY_CASINO_PREMISES)]
+        
         prompt = (
-            "Crea un guion completo de Reel/TikTok (15-20s) cómico para casino.\n"
-            "REQUISITO OBLIGATORIO: El personaje debe cometer un error gracioso o torpeza "
-            "(tropezar, estornudar, presionar Apuesta Máxima por error), pero esa equivocación "
-            "desencadena sorpresivamente el GRAN JACKPOT DE $100,000.\n\n"
-            "Devuelve la respuesta estrictamente en este formato JSON (sin texto extra):\n"
+            f"Crea un guion completo de Reel/TikTok (15-20s) cómico para casino.\n"
+            f"PREMISA CÓMICA: '{chosen_idea}'.\n"
+            "REQUISITO: La equivocación graciosa debe resultar sorpresivamente en el GRAN JACKPOT DE $100,000.\n\n"
+            "Devuelve la respuesta estrictamente en este formato JSON:\n"
             "{\n"
             "  \"story_text\": \"Resumen de la historia en 2 oraciones\",\n"
             "  \"scenes\": [\n"
@@ -53,11 +71,11 @@ class StoryAgent:
             "      \"text_overlay\": \"¡SUBTÍTULO EN MAYÚSCULAS!\"\n"
             "    }\n"
             "  ]\n"
-            "}\n\n"
-            f"Idea base: '{user_idea if user_idea else 'Un día con suerte inesperada en el casino'}'"
+            "}"
         )
         
         effective_key = api_key or config.OPENROUTER_API_KEY or config.OPENAI_API_KEY
+        tokens_used = 450
         
         if effective_key:
             try:
@@ -73,113 +91,49 @@ class StoryAgent:
                             {"role": "user", "content": prompt}
                         ],
                         "response_format": {"type": "json_object"},
-                        "temperature": 0.8
+                        "temperature": 0.85
                     }
                     resp = await client.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
                     if resp.status_code == 200:
-                        raw = resp.json()["choices"][0]["message"]["content"]
+                        json_resp = resp.json()
+                        usage = json_resp.get("usage", {})
+                        tokens_used = usage.get("total_tokens", 500)
+                        raw = json_resp["choices"][0]["message"]["content"]
                         parsed = json.loads(raw)
                         scenes = [Scene(**s) for s in parsed.get("scenes", [])]
+                        
+                        cost_est = (tokens_used / 1000.0) * config.DEEPSEEK_COST_PER_1K_TOKENS
                         return {
                             "story_text": parsed.get("story_text", ""),
-                            "scenes": scenes
+                            "scenes": scenes,
+                            "tokens_used": tokens_used,
+                            "cost_usd": round(cost_est, 6)
                         }
             except Exception as e:
-                print(f"Error in 1-call story+script: {e}")
+                print(f"Error in story generation: {e}")
 
-        # Fallback offline generator if no API key
-        fallback_story = (
-            "Un joven elegante entra al casino buscando una tragamonedas. "
-            "Al intentar tomar su bebida, tropieza accidentalmente y presiona con el codo el botón de 'APUESTA MÁXIMA'. "
-            "Entra en pánico... ¡pero la máquina estalla en una lluvia de monedas entregándole el Jackpot de $100,000!"
-        )
-        fallback_scenes = await ScriptAgent.create_script(fallback_story)
-        return {"story_text": fallback_story, "scenes": fallback_scenes}
+        # Fallback offline generator
+        fallback_story = f"Estaba en el casino cuando ocurrió esto: {chosen_idea}. ¡El resultado fue un Jackpot millonario!"
+        fallback_scenes = [
+            Scene(id=1, duration=4.0, narration="Entré al casino a probar suerte...", visual_description=f"3D chibi character in modern blazer entering casino. Idea: {chosen_idea}", sound_effect="casino_ambient", text_overlay="¡ENTRANDO AL CASINO! 🎰"),
+            Scene(id=2, duration=3.5, narration=f"¡Y ocurrió la mayor locura!: {chosen_idea}", visual_description="Chibi character shocked reaction with big star eyes.", sound_effect="oops_buzzer", text_overlay="¡EQUIVOCACIÓN DIVERTIDA! 😱"),
+            Scene(id=3, duration=4.0, narration="¡La máquina se volvió loca con luces y neón!", visual_description="Slot machine flashing 777 lights.", sound_effect="panic_gasp", text_overlay="¡APUESTA MÁXIMA ACTIVADA! 💥"),
+            Scene(id=4, duration=4.5, narration="¡Y estalló el Jackpot de $100,000! ¡La mejor equivocación de la vida!", visual_description="Gold coins fountain spraying, chibi celebrating happily.", sound_effect="jackpot_coins", text_overlay="¡¡¡GANAMOS EL JACKPOT!!! 🏆💰")
+        ]
+        return {
+            "story_text": fallback_story,
+            "scenes": fallback_scenes,
+            "tokens_used": 0,
+            "cost_usd": 0.0
+        }
 
 class ScriptAgent:
-    """Transforms a story into a structured scene-by-scene Reel script."""
-    
     @staticmethod
     async def create_script(story_text: str, api_key: str = "") -> List[Scene]:
-        effective_key = api_key or config.OPENROUTER_API_KEY or config.OPENAI_API_KEY
-        
-        if effective_key:
-            system_prompt = (
-                "Eres un director de cine corto. Convierte la historia en exactamente 4 o 5 escenas breves en formato JSON.\n"
-                "Formato JSON requerido (lista de objetos):\n"
-                "[\n"
-                "  {\n"
-                "    \"id\": 1,\n"
-                "    \"duration\": 4.0,\n"
-                "    \"narration\": \"Texto en español corto para voz en off\",\n"
-                "    \"visual_description\": \"Descripción visual del personaje 3D chibi y su acción graciosa\",\n"
-                "    \"sound_effect\": \"slot_spin / oops_buzzer / panic_gasp / jackpot_coins / cheer\",\n"
-                "    \"text_overlay\": \"SUBTÍTULO EN MAYÚSCULAS PARA PANTALLA\"\n"
-                "  }\n"
-                "]"
-            )
-            try:
-                async with httpx.AsyncClient(timeout=30.0) as client:
-                    headers = {
-                        "Authorization": f"Bearer {effective_key}",
-                        "Content-Type": "application/json"
-                    }
-                    data = {
-                        "model": config.LLM_MODEL,
-                        "messages": [
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": f"Historia:\n{story_text}"}
-                        ],
-                        "response_format": {"type": "json_object"}
-                    }
-                    resp = await client.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
-                    if resp.status_code == 200:
-                        raw_json = resp.json()["choices"][0]["message"]["content"]
-                        parsed = json.loads(raw_json)
-                        scenes_data = parsed if isinstance(parsed, list) else parsed.get("scenes", [])
-                        return [Scene(**s) for s in scenes_data]
-            except Exception as e:
-                print(f"Script parsing error: {e}")
-
-        # Structured default scenes with funny mistake + jackpot win
-        return [
-            Scene(
-                id=1,
-                duration=4.0,
-                narration="Entré al casino con toda la actitud y mis mejores ropas modernas...",
-                visual_description="Cute 3D chibi character in fashionable modern luxury attire stepping into a bright futuristic casino, looking confident with huge sparkling eyes.",
-                sound_effect="casino_ambient",
-                text_overlay="¡ENTRANDO AL CASINO CON ACTITUD! 🎰✨"
-            ),
-            Scene(
-                id=2,
-                duration=3.5,
-                narration="Iba a presionar el botón de 1 dólar, pero por voltear a ver un cocktail...",
-                visual_description="Chibi character holding a soda cup, getting distracted and looking sideways with an exaggerated funny blush reaction.",
-                sound_effect="oops_buzzer",
-                text_overlay="¡OH NO! ¡ME DISTRAJE! 🍹😅"
-            ),
-            Scene(
-                id=3,
-                duration=4.0,
-                narration="¡Tropecé y presioné el botón de APUESTA MÁXIMA por error!",
-                visual_description="Chibi character slipping funny and slamming hands onto the red glowing MAX BET button of a slot machine, eyes popping out in hilarious shock.",
-                sound_effect="panic_gasp",
-                text_overlay="¡PRESIONÉ APUESTA MÁXIMA POR ERROR! 😱💥"
-            ),
-            Scene(
-                id=4,
-                duration=5.0,
-                narration="¡Y la máquina estalló en luces neón regalándome el JACKPOT DE SU VIDA!",
-                visual_description="The slot machine flashes 777 GOLDEN JACKPOT, golden coins fountain spraying everywhere, chibi character crying tears of happiness with star pupil eyes celebrating wildly.",
-                sound_effect="jackpot_coins",
-                text_overlay="¡¡¡GANAMOS EL JACKPOT DE $100,000!!! 🎉💰🏆"
-            )
-        ]
+        res = await StoryAgent.generate_story_and_script(user_idea=story_text, api_key=api_key)
+        return res.get("scenes", [])
 
 class VisualDesignAgent:
-    """Enriches visual descriptions with modern 3D chibi style parameters."""
-    
     @staticmethod
     def generate_prompts(scenes: List[Scene]) -> List[Scene]:
         for scene in scenes:

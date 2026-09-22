@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Casino Reels AI — Sistema de Agentes de Video</title>
+    <title>Casino Reels AI — Sistema de Agentes & Panel de Observabilidad</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -18,79 +18,105 @@
                 <div class="brand-icon">🎰</div>
                 <div class="brand-text">
                     <h1>CasinoReels<span>.AI</span></h1>
-                    <p>Sistema Autónomo de Agentes Multi-Escena (3D Chibi Moderno)</p>
+                    <p>Sistema Multi-Agente (Retención 15 Días + Panel de Observabilidad)</p>
                 </div>
             </div>
             <div class="header-actions">
-                <div class="credit-pill" id="creditStatus">
-                    <span class="status-dot online"></span> OpenCloud / API Conectada
+                <div class="credit-pill" id="retentionStatus">
+                    <span class="status-dot online"></span> Retención: 15 Días en Disco
                 </div>
                 <button class="btn btn-outline" id="btnConfigModal">⚙️ Configurar Créditos</button>
             </div>
         </header>
 
-        <!-- Main Dashboard Layout -->
+        <!-- Observability Dashboard Header Cards -->
+        <section class="obs-dashboard">
+            <div class="obs-card">
+                <div class="obs-title">📊 Progreso Lote (20 Reels)</div>
+                <div class="obs-value" id="obsProgressText">0 / 20</div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" id="obsProgressBar" style="width: 0%;"></div>
+                </div>
+            </div>
+
+            <div class="obs-card">
+                <div class="obs-title">💰 Costo Estimado Sesión</div>
+                <div class="obs-value gold-text" id="obsTotalCost">$0.00000 <span class="obs-unit">USD</span></div>
+                <div class="obs-sub" id="obsAvgCost">Promedio: $0.00000 / Reel</div>
+            </div>
+
+            <div class="obs-card">
+                <div class="obs-title">🧠 Tokens LLM Consumidos</div>
+                <div class="obs-value accent-text" id="obsTokens">0 <span class="obs-unit">Tokens</span></div>
+                <div class="obs-sub">DeepSeek V3 (50% token opt)</div>
+            </div>
+
+            <div class="obs-card">
+                <div class="obs-title">💾 Disco Usado (15 Días)</div>
+                <div class="obs-value" id="obsDiskUsed">0.00 <span class="obs-unit">MB</span></div>
+                <div class="obs-sub" id="obsReelsCount">0 videos en almacenamiento</div>
+            </div>
+        </section>
+
+        <!-- Main Dashboard Grid -->
         <main class="dashboard-grid">
-            <!-- Left Panel: Workflow & Controls -->
+            <!-- Left Panel: Workflow, Batch Controls & Logs -->
             <section class="panel workflow-panel">
                 <div class="panel-header">
-                    <h2>✨ 1. Concepto e Historia de Casino</h2>
-                    <span class="badge">Agente Guionista Cómico</span>
+                    <h2>🔥 Bucle de Creación Masiva (20 Reels)</h2>
+                    <span class="badge badge-gold">Auto 20 Reels</span>
                 </div>
 
+                <button class="btn btn-gold btn-block btn-lg" id="btnStartBatch">
+                    <span class="btn-text">🚀 Iniciar Bucle Masivo de 20 Reels (1-Clic)</span>
+                    <span class="spinner hidden"></span>
+                </button>
+
+                <div class="divider"><span>o genera un reel individual</span></div>
+
                 <div class="form-group">
-                    <label for="userPrompt">Idea de la historia o escena cómico-ganadora:</label>
-                    <textarea id="userPrompt" rows="3" placeholder="Ej: Me distraje tomando una soda en el casino, tropecé y apreté el botón rojo de Apuesta Máxima..."></textarea>
+                    <label for="userPrompt">Idea de la historia cósmica de casino:</label>
+                    <textarea id="userPrompt" rows="2" placeholder="Ej: Tropecé bailando de felicidad y apreté Apuesta Máxima..."></textarea>
                 </div>
 
                 <div class="prompt-chips">
-                    <button class="chip" onclick="setPrompt('Tropecé con la palanca de tragamonedas mientras bailaba de felicidad y activé el Jackpot')">💃 Baile & Tropezón</button>
-                    <button class="chip" onclick="setPrompt('Estornudé y toqué el botón de apuesta máxima por error con la frente')">🤧 Estornudo de la Suerte</button>
-                    <button class="chip" onclick="setPrompt('Confundí la máquina tragamonedas con un cajero automático y gané \$100,000')">🏧 Confusión Millonaria</button>
+                    <button class="chip" onclick="setPrompt('Tropecé bailando de felicidad y presioné la Apuesta Máxima con la rodilla')">💃 Baile & Tropezón</button>
+                    <button class="chip" onclick="setPrompt('Estornudé tan fuerte que mi frente tocó la pantalla de 777')">🤧 Estornudo de Suerte</button>
+                    <button class="chip" onclick="setPrompt('Confundí la tragamonedas con una máquina de peluches')">🏧 Confusión Millonaria</button>
                 </div>
 
-                <button class="btn btn-gold btn-block" id="btnFastReel">
-                    <span class="btn-text">⚡ Crear Reel Completo en 1 Clic (Historia + Audio + Video 9:16)</span>
+                <button class="btn btn-primary btn-block" id="btnFastReel">
+                    <span class="btn-text">⚡ Crear 1 Reel Individual (4.3s)</span>
                     <span class="spinner hidden"></span>
                 </button>
 
-                <div class="divider"><span>o paso a paso</span></div>
-
-                <button class="btn btn-primary btn-block" id="btnGenerateStory">
-                    <span class="btn-text">🚀 Generar Historia Cósmica con Agente AI</span>
-                    <span class="spinner hidden"></span>
-                </button>
-
-                <div class="story-box hidden" id="storyBox">
-                    <h3>📖 Historia Generada (Con final feliz):</h3>
-                    <p id="storyContent"></p>
-                    <button class="btn btn-secondary btn-block mt-12" id="btnCreateScript">
-                        🎬 Crear Guion y Prompts 3D Chibi (Paso 2)
-                    </button>
+                <!-- Live Log Terminal -->
+                <div class="terminal-box mt-20">
+                    <div class="terminal-header">
+                        <span>📟 Console Log de Observabilidad en Tiempo Real</span>
+                        <span class="live-tag">LIVE</span>
+                    </div>
+                    <div class="terminal-body" id="terminalLogs">
+                        <div class="log-line text-muted">[Sistema listo] Esperando inicio de sesión o generación...</div>
+                    </div>
                 </div>
 
-                <!-- Scene Beat Editor -->
-                <div class="scenes-container hidden" id="scenesContainer">
+                <!-- Generated Batch Gallery -->
+                <div class="batch-gallery-container hidden" id="batchGalleryContainer">
                     <div class="panel-header mt-24">
-                        <h2>🎬 2. Escenas y Prompts 3D Chibi (9:16)</h2>
-                        <span class="badge badge-accent">Visual Agent</span>
+                        <h3>📦 Galería de Reels Generados en esta Sesión</h3>
                     </div>
-
-                    <div id="scenesList" class="scenes-list">
-                        <!-- Rendered dynamically by JS -->
+                    <div class="batch-grid" id="batchGrid">
+                        <!-- Rendered by JS -->
                     </div>
-
-                    <button class="btn btn-accent btn-block mt-20" id="btnRenderReel">
-                        ✨ Renderizar Reel Completo (Audio + SFX + Video 9:16)
-                    </button>
                 </div>
             </section>
 
             <!-- Right Panel: Phone Preview 9:16 Reel Player -->
             <section class="panel preview-panel">
                 <div class="panel-header">
-                    <h2>📱 Vista Previa TikTok / Instagram Reel (9:16)</h2>
-                    <span class="badge badge-gold">Final Render</span>
+                    <h2>📱 Reproductor Reel 9:16</h2>
+                    <span class="badge badge-accent">Vista Previa</span>
                 </div>
 
                 <div class="phone-mockup">
@@ -102,11 +128,11 @@
                             <div class="placeholder-player" id="playerPlaceholder">
                                 <div class="chibi-preview-icon">🎰</div>
                                 <h3>Tu Reel 9:16 aparecerá aquí</h3>
-                                <p>Haz clic en "Generar Historia" para iniciar el flujo multi-agente.</p>
+                                <p>Presiona "Iniciar Bucle Masivo de 20 Reels" para ver la creación automática.</p>
                                 <div class="chibi-features">
                                     <span>✨ Estilo 3D Chibi Expresivo</span>
                                     <span>👔 Ropa Moderna de Gala</span>
-                                    <span>💰 Efectos de Monedas y Luces Neón</span>
+                                    <span>💰 Retención de 15 Días en Disco</span>
                                 </div>
                             </div>
                             <video id="reelVideoPlayer" class="hidden" controls loop playsinline></video>
@@ -115,7 +141,7 @@
                         <!-- Reel Overlay Metadata -->
                         <div class="reel-overlay-ui hidden" id="reelOverlayUi">
                             <div class="reel-sound-tag">🎵 Sonido Original — Casino Winner 3D</div>
-                            <div class="reel-caption">¡Equivocaciones que valen oro! 🏆💰 #CasinoWin #SlotMachine #Jackpot #3DChibi #ViralReels</div>
+                            <div class="reel-caption" id="reelCaptionText">¡Equivocaciones que valen oro! 🏆💰 #CasinoWin #SlotMachine #Jackpot #3DChibi #ViralReels</div>
                         </div>
                     </div>
                 </div>
@@ -133,11 +159,11 @@
     <div class="modal-overlay hidden" id="configModal">
         <div class="modal-card">
             <div class="modal-header">
-                <h3>⚙️ Configuración de Créditos y APIs Cloud</h3>
+                <h3>⚙️ Configuración de Créditos y Modelos</h3>
                 <button class="modal-close" id="btnCloseModal">&times;</button>
             </div>
             <div class="modal-body">
-                <p>Configura tus claves y selecciona los modelos de IA (incluyendo modelos chinos de alto rendimiento):</p>
+                <p>Configura tus claves y selecciona los modelos de IA recomendados:</p>
                 
                 <div class="form-group">
                     <label for="llmSelect">Modelo de Lenguaje (Historias y Guiones):</label>
@@ -170,7 +196,7 @@
                 </div>
                 
                 <div class="info-alert">
-                    💡 <b>Nota:</b> Modelos como <b>DeepSeek V3</b> en OpenRouter o <b>MiniMax / Kling</b> en Fal.ai ofrecen una calidad excepcional para animaciones 3D Chibi y secuencias de casino.
+                    💡 <b>Retención:</b> Todos los Reels generados se almacenan durante <b>15 días (360 horas)</b> antes de ser reciclados.
                 </div>
             </div>
             <div class="modal-footer">

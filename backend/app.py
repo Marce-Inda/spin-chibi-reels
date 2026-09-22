@@ -1,7 +1,24 @@
+import os
 import time
+import asyncio
+from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
+from typing import List, Dict, Any, Optional
 
-def cleanup_old_files(directory: str, max_age_seconds: int = 3 * 24 * 3600):
-    """Deletes output video files and cached assets older than 3 days (72 hours)."""
+from config import config
+from agents import StoryAgent, ScriptAgent, VisualDesignAgent, Scene, COMEDY_CASINO_PREMISES
+from media_engine import MediaEngine
+
+app = FastAPI(title="Casino Reels Agent System API", version="2.0.0")
+
+# Serve frontend static assets
+FRONTEND_DIR = os.path.join(config.BASE_DIR, "frontend")
+OUTPUT_DIR = config.OUTPUT_DIR
+
+def cleanup_old_files(directory: str, max_age_seconds: int = config.RETENTION_SECONDS):
+    """Deletes output video files and cached assets older than 15 days (360 hours)."""
     now = time.time()
     if not os.path.exists(directory):
         return
@@ -14,23 +31,26 @@ def cleanup_old_files(directory: str, max_age_seconds: int = 3 * 24 * 3600):
                     os.remove(filepath)
                 except Exception as e:
                     print(f"Error removing old file {filepath}: {e}")
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
 
-from config import config
-from agents import StoryAgent, ScriptAgent, VisualDesignAgent, Scene
-from media_engine import MediaEngine
-
-app = FastAPI(title="Casino Reels Agent System API", version="1.0.0")
-
-# Serve frontend static assets
-FRONTEND_DIR = os.path.join(config.BASE_DIR, "frontend")
-OUTPUT_DIR = config.OUTPUT_DIR
+# Global Batch State for Observability Dashboard
+batch_state = {
+    "is_running": False,
+    "current_index": 0,
+    "total_reels": 20,
+    "completed_reels": [],
+    "logs": [],
+    "total_tokens_used": 0,
+    "total_cost_usd": 0.0,
+    "start_time": 0.0,
+    "elapsed_seconds": 0.0
+}
 
 class StoryRequest(BaseModel):
     user_prompt: Optional[str] = ""
+    api_key: Optional[str] = ""
+
+class BatchRequest(BaseModel):
+    total_reels: Optional[int] = 20
     api_key: Optional[str] = ""
 
 class ScriptRequest(BaseModel):
@@ -48,14 +68,113 @@ class ConfigUpdateRequest(BaseModel):
     llm_model: Optional[str] = ""
     video_model: Optional[str] = ""
 
+async def run_batch_generation_task(total_reels: int, api_key: str):
+    """Background task to generate N (default 20) complete Reels sequentially with live logging & cost tracking."""
+    global batch_state
+    batch_state["is_running"] = True
+    batch_state["current_index"] = 0
+    batch_state["total_reels"] = total_reels
+    batch_state["completed_reels"] = []
+    batch_state["logs"] = []
+    batch_state["total_tokens_used"] = 0
+    batch_state["total_cost_usd"] = 0.0
+    batch_state["start_time"] = time.time()
+
+    cleanup_old_files(OUTPUT_DIR)
+    cleanup_old_files(os.path.join(OUTPUT_DIR, "cache"))
+
+    for i in range(total_reels):
+        reel_num = i + 1
+        batch_state["current_index"] = reel_num
+        start_reel_time = time.time()
+        
+        log_msg = f"🎬 Iniciando Reel #{reel_num}/{total_reels}..."
+        batch_state["logs"].append(f"[{time.strftime('%H:%M:%S')}] {log_msg}")
+
+        try:
+            # 1. Generate Story & Scenes
+            story_res = await StoryAgent.generate_story_and_script(api_key=api_key, index=i)
+            scenes = VisualDesignAgent.generate_prompts(story_res.get("scenes", []))
+            
+            tokens = story_res.get("tokens_used", 450)
+            cost = story_res.get("cost_usd", 0.00015)
+            
+            # 2. Render Video Reel
+            filename = f"reel_batch_{reel_num}.mp4"
+            output_path = await MediaEngine.assemble_reel(scenes, output_filename=filename)
+            duration_rendered = round(time.time() - start_reel_time, 2)
+
+            batch_state["total_tokens_used"] += tokens
+            batch_state["total_cost_usd"] += cost
+
+            reel_data = {
+                "id": reel_num,
+                "title": f"Reel #{reel_num} — {COMEDY_CASINO_PREMISES[i % len(COMEDY_CASINO_PREMISES)][:30]}...",
+                "story": story_res.get("story_text", ""),
+                "video_url": f"/api/download-reel-by-name/{filename}",
+                "file_path": output_path,
+                "render_time_sec": duration_rendered,
+                "tokens_used": tokens,
+                "cost_usd": cost
+            }
+            batch_state["completed_reels"].append(reel_data)
+            batch_state["logs"].append(f"[{time.strftime('%H:%M:%S')}] ✅ Reel #{reel_num} completado en {duration_rendered}s. Costo est: ${cost:.5f}")
+        except Exception as e:
+            batch_state["logs"].append(f"[{time.strftime('%H:%M:%S')}] ❌ Error en Reel #{reel_num}: {str(e)}")
+
+        batch_state["elapsed_seconds"] = round(time.time() - batch_state["start_time"], 2)
+
+    batch_state["is_running"] = False
+    batch_state["logs"].append(f"[{time.strftime('%H:%M:%S')}] 🎉 ¡Lote de {total_reels} Reels completado con éxito! Costo total: ${batch_state['total_cost_usd']:.5f}")
+
 @app.get("/api/health")
 def health_check():
     return {
         "status": "online",
         "has_openrouter": bool(config.OPENROUTER_API_KEY or config.OPENAI_API_KEY),
-        "has_replicate": bool(config.REPLICATE_API_KEY),
-        "has_fal": bool(config.FAL_API_KEY),
+        "retention_days": config.RETENTION_DAYS,
         "output_dir": config.OUTPUT_DIR
+    }
+
+@app.post("/api/start-batch")
+async def start_batch(req: BatchRequest, background_tasks: BackgroundTasks):
+    if batch_state["is_running"]:
+        return {"status": "running", "message": "Ya hay una sesión de lotes en ejecución."}
+    
+    total = req.total_reels or 20
+    background_tasks.add_task(run_batch_generation_task, total, req.api_key)
+    return {"status": "started", "message": f"Sesión de {total} Reels iniciada en segundo plano."}
+
+@app.get("/api/batch-status")
+def get_batch_status():
+    if batch_state["is_running"]:
+        batch_state["elapsed_seconds"] = round(time.time() - batch_state["start_time"], 2)
+    return batch_state
+
+@app.get("/api/observability-stats")
+def get_observability_stats():
+    """Returns disk usage, file count, retention policy metrics, and session cost statistics."""
+    total_size_bytes = 0
+    file_count = 0
+    
+    if os.path.exists(OUTPUT_DIR):
+        for root, dirs, files in os.walk(OUTPUT_DIR):
+            for f in files:
+                fp = os.path.join(root, f)
+                total_size_bytes += os.path.getsize(fp)
+                if f.endswith(".mp4"):
+                    file_count += 1
+                    
+    size_mb = round(total_size_bytes / (1024 * 1024), 2)
+    
+    return {
+        "stored_reels_count": file_count,
+        "disk_used_mb": size_mb,
+        "retention_days": config.RETENTION_DAYS,
+        "retention_policy": "Archivos conservados durante 15 días (360 horas) antes de borrado automático",
+        "current_session_cost_usd": round(batch_state["total_cost_usd"], 5),
+        "total_tokens_used": batch_state["total_tokens_used"],
+        "cost_per_reel_avg_usd": round(batch_state["total_cost_usd"] / max(len(batch_state["completed_reels"]), 1), 6)
     }
 
 @app.post("/api/update-config")
@@ -81,7 +200,6 @@ async def generate_story(req: StoryRequest):
 
 @app.post("/api/generate-full-reel")
 async def generate_full_reel(req: StoryRequest):
-    """1-Click Generation: Generates story, script, prompts, and renders 9:16 Reel video in 1 request."""
     try:
         story_and_script = await StoryAgent.generate_story_and_script(user_idea=req.user_prompt, api_key=req.api_key)
         scenes = VisualDesignAgent.generate_prompts(story_and_script.get("scenes", []))
@@ -105,8 +223,8 @@ async def create_script(req: ScriptRequest):
 @app.post("/api/render-reel")
 async def render_reel(req: RenderRequest):
     try:
-        cleanup_old_files(config.OUTPUT_DIR)
-        cleanup_old_files(os.path.join(config.OUTPUT_DIR, "cache"))
+        cleanup_old_files(OUTPUT_DIR)
+        cleanup_old_files(os.path.join(OUTPUT_DIR, "cache"))
         output_file = await MediaEngine.assemble_reel(req.scenes, output_filename="casino_reel.mp4")
         return {
             "status": "success",
@@ -122,6 +240,13 @@ def download_reel():
     if not os.path.exists(reel_path):
         raise HTTPException(status_code=404, detail="El archivo de Reel no existe. Genera uno primero.")
     return FileResponse(reel_path, media_type="video/mp4", filename="casino_reel_916.mp4")
+
+@app.get("/api/download-reel-by-name/{filename}")
+def download_reel_by_name(filename: str):
+    reel_path = os.path.join(OUTPUT_DIR, filename)
+    if not os.path.exists(reel_path):
+        raise HTTPException(status_code=404, detail=f"El archivo {filename} no existe.")
+    return FileResponse(reel_path, media_type="video/mp4", filename=filename)
 
 # Mount static frontend directory
 app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
