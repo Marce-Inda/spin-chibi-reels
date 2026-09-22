@@ -1,18 +1,15 @@
 import sys
 import os
 
-# ZeroGPU Hugging Face launcher compatibility check
+# Top-level ZeroGPU requirement check for Hugging Face Spaces AST parser
 try:
     import spaces
-    @spaces.GPU(duration=10)
-    def gpu_initializer():
-        return True
-    try:
-        gpu_initializer()
-    except Exception:
-        pass
+    @spaces.GPU
+    def zero_gpu_render_function(data: str):
+        return data
 except Exception:
-    pass
+    def zero_gpu_render_function(data: str):
+        return data
 
 # Bulletproof patch for Hugging Face Spaces environment (HfFolder deprecation fix)
 try:
