@@ -10,10 +10,8 @@ class AppConfig(BaseModel):
     ELEVENLABS_API_KEY: str = os.getenv("ELEVENLABS_API_KEY", "")
     
     # Model preferences
-    # Text LLM Models (Supports DeepSeek, Qwen 2.5, Gemini, Llama)
+    # Automatic Recommended Defaults: DeepSeek V3 for comedy scripts, Flux/MiniMax for 3D Chibi visuals
     LLM_MODEL: str = os.getenv("LLM_MODEL", "deepseek/deepseek-chat")
-    
-    # Image/Video Models (Supports MiniMax, Kling AI, CogVideoX, Flux)
     IMAGE_MODEL: str = os.getenv("IMAGE_MODEL", "fal-ai/flux/schnell")
     VIDEO_MODEL: str = os.getenv("VIDEO_MODEL", "fal-ai/minimax-video")
     
