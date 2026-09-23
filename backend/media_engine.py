@@ -1,10 +1,16 @@
 import os
+import sys
 import hashlib
 import subprocess
 import asyncio
 from typing import List
 from PIL import Image, ImageDraw, ImageFont
 import edge_tts
+
+backend_dir = os.path.dirname(os.path.abspath(__file__))
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
+
 from agents import Scene
 from config import config
 
