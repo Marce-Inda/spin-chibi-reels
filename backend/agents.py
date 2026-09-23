@@ -53,38 +53,58 @@ CHIBI_STYLE_BASELINE = (
     "gold coins, cinematic lighting, 8k resolution, vertical 9:16 ratio"
 )
 
+from script_database import get_script_by_index, VIRAL_CASINO_SCRIPTS, MASTER_CHIBI_STYLE
+
 class StoryAgent:
-    """Generates funny casino stories featuring mistakes/blunders leading to a jackpot win."""
+    """Generates funny casino stories featuring blunders leading to jackpot wins."""
     
     @staticmethod
     async def generate_story_and_script(user_idea: str = "", api_key: str = "", index: int = 0) -> Dict[str, Any]:
-        """Generates story + 4-5 JSON scenes with token & cost tracking for observability."""
-        chosen_idea = user_idea if user_idea else COMEDY_CASINO_PREMISES[index % len(COMEDY_CASINO_PREMISES)]
-        
-        prompt = (
-            f"Crea un guion completo de Reel/TikTok (15-20s) cómico para casino.\n"
-            f"PREMISA CÓMICA: '{chosen_idea}'.\n"
-            "REQUISITO: La equivocación graciosa debe resultar sorpresivamente en el GRAN JACKPOT DE $100,000.\n\n"
-            "Devuelve la respuesta estrictamente en este formato JSON:\n"
-            "{\n"
-            "  \"story_text\": \"Resumen de la historia en 2 oraciones\",\n"
-            "  \"scenes\": [\n"
-            "    {\n"
-            "      \"id\": 1,\n"
-            "      \"duration\": 4.0,\n"
-            "      \"narration\": \"Texto en español para voz en off\",\n"
-            "      \"visual_description\": \"Cute 3D chibi character in fashionable modern luxury blazer...\",\n"
-            "      \"sound_effect\": \"slot_spin / oops_buzzer / panic_gasp / jackpot_coins\",\n"
-            "      \"text_overlay\": \"¡SUBTÍTULO EN MAYÚSCULAS!\"\n"
-            "    }\n"
-            "  ]\n"
-            "}"
-        )
-        
+        """Loads curated AAA scripts from script_database or generates via LLM with 3D Chibi master prompts."""
+        # If no custom prompt, load directly from 30-script viral database (0 token cost, 100% quality)
+        if not user_idea.strip():
+            script_data = get_script_by_index(index)
+            scenes = [
+                Scene(
+                    id=s["id"],
+                    duration=s["duration"],
+                    narration=s["narration"],
+                    visual_description=s["visual_description"],
+                    sound_effect=s["sound_effect"],
+                    text_overlay=s["text_overlay"],
+                    image_prompt=s["image_prompt"]
+                )
+                for s in script_data["scenes"]
+            ]
+            return {
+                "story_text": script_data["story_text"],
+                "scenes": scenes,
+                "tokens_used": 0,
+                "cost_usd": 0.0
+            }
+
+        # If user provided a specific prompt idea, search if it matches a category/script or call LLM
         effective_key = api_key or config.OPENROUTER_API_KEY or config.OPENAI_API_KEY
-        tokens_used = 450
-        
         if effective_key:
+            prompt = (
+                f"Crea un guion completo de Reel/TikTok (15-20s) cómico para casino.\n"
+                f"PREMISA CÓMICA: '{user_idea}'.\n"
+                "REQUISITO: La equivocación graciosa debe resultar en el GRAN JACKPOT DE $100,000.\n\n"
+                "Devuelve la respuesta estrictamente en este formato JSON:\n"
+                "{\n"
+                "  \"story_text\": \"Resumen de la historia en 2 oraciones\",\n"
+                "  \"scenes\": [\n"
+                "    {\n"
+                "      \"id\": 1,\n"
+                "      \"duration\": 4.0,\n"
+                "      \"narration\": \"Texto en español para voz en off\",\n"
+                "      \"visual_description\": \"Detailed 3D chibi character in gala tuxedo...\",\n"
+                "      \"sound_effect\": \"slot_spin / oops_buzzer / panic_gasp / jackpot_coins\",\n"
+                "      \"text_overlay\": \"¡SUBTÍTULO EN MAYÚSCULAS!\"\n"
+                "    }\n"
+                "  ]\n"
+                "}"
+            )
             try:
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     headers = {
@@ -94,7 +114,7 @@ class StoryAgent:
                     data = {
                         "model": config.LLM_MODEL,
                         "messages": [
-                            {"role": "system", "content": "Eres un director de cine corto viral para TikTok/Reels."},
+                            {"role": "system", "content": "Eres un director de cine corto viral para TikTok/Reels estilo 3D Chibi Pixar."},
                             {"role": "user", "content": prompt}
                         ],
                         "response_format": {"type": "json_object"},
@@ -107,8 +127,18 @@ class StoryAgent:
                         tokens_used = usage.get("total_tokens", 500)
                         raw = json_resp["choices"][0]["message"]["content"]
                         parsed = json.loads(raw)
-                        scenes = [Scene(**s) for s in parsed.get("scenes", [])]
-                        
+                        scenes = [
+                            Scene(
+                                id=s["id"],
+                                duration=s.get("duration", 4.0),
+                                narration=s.get("narration", ""),
+                                visual_description=s.get("visual_description", ""),
+                                sound_effect=s.get("sound_effect", "slot_spin"),
+                                text_overlay=s.get("text_overlay", ""),
+                                image_prompt=f"{s.get('visual_description', '')}, {MASTER_CHIBI_STYLE}"
+                            )
+                            for s in parsed.get("scenes", [])
+                        ]
                         cost_est = (tokens_used / 1000.0) * config.DEEPSEEK_COST_PER_1K_TOKENS
                         return {
                             "story_text": parsed.get("story_text", ""),
@@ -117,19 +147,14 @@ class StoryAgent:
                             "cost_usd": round(cost_est, 6)
                         }
             except Exception as e:
-                print(f"Error in story generation: {e}")
+                print(f"Error in story LLM generation: {e}")
 
-        # Fallback offline generator
-        fallback_story = f"Estaba en el casino cuando ocurrió esto: {chosen_idea}. ¡El resultado fue un Jackpot millonario!"
-        fallback_scenes = [
-            Scene(id=1, duration=4.0, narration="Entré al casino a probar suerte...", visual_description=f"3D chibi character in modern blazer entering casino. Idea: {chosen_idea}", sound_effect="casino_ambient", text_overlay="¡ENTRANDO AL CASINO! 🎰"),
-            Scene(id=2, duration=3.5, narration=f"¡Y ocurrió la mayor locura!: {chosen_idea}", visual_description="Chibi character shocked reaction with big star eyes.", sound_effect="oops_buzzer", text_overlay="¡EQUIVOCACIÓN DIVERTIDA! 😱"),
-            Scene(id=3, duration=4.0, narration="¡La máquina se volvió loca con luces y neón!", visual_description="Slot machine flashing 777 lights.", sound_effect="panic_gasp", text_overlay="¡APUESTA MÁXIMA ACTIVADA! 💥"),
-            Scene(id=4, duration=4.5, narration="¡Y estalló el Jackpot de $100,000! ¡La mejor equivocación de la vida!", visual_description="Gold coins fountain spraying, chibi celebrating happily.", sound_effect="jackpot_coins", text_overlay="¡¡¡GANAMOS EL JACKPOT!!! 🏆💰")
-        ]
+        # Fallback to curated script 0
+        script_data = VIRAL_CASINO_SCRIPTS[0]
+        scenes = [Scene(**s) for s in script_data["scenes"]]
         return {
-            "story_text": fallback_story,
-            "scenes": fallback_scenes,
+            "story_text": f"Premisa: {user_idea}. " + script_data["story_text"],
+            "scenes": scenes,
             "tokens_used": 0,
             "cost_usd": 0.0
         }
@@ -144,5 +169,6 @@ class VisualDesignAgent:
     @staticmethod
     def generate_prompts(scenes: List[Scene]) -> List[Scene]:
         for scene in scenes:
-            scene.image_prompt = f"{scene.visual_description}, {CHIBI_STYLE_BASELINE}"
+            if not scene.image_prompt:
+                scene.image_prompt = f"{scene.visual_description}, {MASTER_CHIBI_STYLE}"
         return scenes

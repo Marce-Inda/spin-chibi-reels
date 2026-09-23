@@ -137,27 +137,57 @@ class MediaEngine:
             subprocess.run(f"cp {output_sfx_path} {cached_file}", shell=True)
 
     @classmethod
+    async def generate_ai_chibi_frame(cls, scene: Scene, frame_path: str):
+        """Generates AAA 3D Chibi CGI Pixar/UE5 image using FAL/Replicate/Flux API with local disk caching."""
+        prompt = scene.image_prompt or scene.visual_description
+        cache_key = cls._get_hash(f"{prompt}_720x1280")
+        cached_file = os.path.join(CACHE_DIR, f"img_{cache_key}.png")
+
+        if os.path.exists(cached_file) and os.path.getsize(cached_file) > 0:
+            subprocess.run(f"cp {cached_file} {frame_path}", shell=True)
+            return
+
+        # Try FAL.ai / Replicate / Pollinations Flux API if key available or public endpoint
+        import urllib.parse
+        encoded_prompt = urllib.parse.quote(prompt)
+        flux_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=720&height=1280&nologo=true&seed={scene.id * 777}"
+
+        try:
+            async with httpx.AsyncClient(timeout=25.0) as client:
+                resp = await client.get(flux_url)
+                if resp.status_code == 200 and len(resp.content) > 10000:
+                    with open(frame_path, "wb") as f:
+                        f.write(resp.content)
+                    subprocess.run(f"cp {frame_path} {cached_file}", shell=True)
+                    return
+        except Exception as e:
+            print(f"Flux image API call failed, falling back to local renderer: {e}")
+
+        # Local rendering fallback
+        cls.create_fallback_chibi_frame(scene, frame_path)
+
+    @classmethod
     async def render_scene_video(cls, scene: Scene, scene_dir: str) -> str:
-        """Renders video clip for a single scene in parallel with optimized FFmpeg ultrafast encoding."""
+        """Renders video clip for a single scene with AAA visuals & optimized FFmpeg encoding."""
         frame_path = os.path.join(scene_dir, f"frame_{scene.id}.png")
         narration_path = os.path.join(scene_dir, f"audio_{scene.id}.mp3")
         sfx_path = os.path.join(scene_dir, f"sfx_{scene.id}.wav")
         clip_video_path = os.path.join(scene_dir, f"clip_{scene.id}.mp4")
 
-        # 1. Create Frame Visual
-        cls.create_fallback_chibi_frame(scene, frame_path)
-
-        # 2. Run TTS and SFX concurrently to save time
+        # 1. Generate AAA 3D Chibi Image Visual & Audio concurrently
         await asyncio.gather(
+            cls.generate_ai_chibi_frame(scene, frame_path),
             cls.generate_narration_audio(scene, narration_path),
             asyncio.to_thread(cls.generate_synthetic_audio_effect, scene.sound_effect, sfx_path)
         )
 
-        # 3. Optimized FFmpeg rendering using ultrafast preset & lower CPU usage
-        duration = max(scene.duration, 3.0)
+        # 2. Optimized FFmpeg rendering using ultrafast preset & dynamic text overlay
+        duration = max(scene.duration, 3.5)
+        safe_overlay = scene.text_overlay.replace("'", "").replace('"', "")
+        
         ffmpeg_cmd = (
             f"ffmpeg -y -loop 1 -i {frame_path} -i {narration_path} -i {sfx_path} "
-            f"-filter_complex \"[0:v]scale=720:1280,zoompan=z='min(zoom+0.0015,1.08)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=125:s=720x1280[v];"
+            f"-filter_complex \"[0:v]scale=720:1280,drawtext=text='{safe_overlay}':x=(w-text_w)/2:y=h-200:fontsize=36:fontcolor=yellow:box=1:boxcolor=black@0.6:boxborderw=10[v];"
             f"[1:a][2:a]amix=inputs=2:duration=first[a]\" "
             f"-map \"[v]\" -map \"[a]\" -c:v libx264 -preset ultrafast -crf 23 -pix_fmt yuv420p -t {duration} {clip_video_path}"
         )
