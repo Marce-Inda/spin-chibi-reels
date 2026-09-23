@@ -34,7 +34,28 @@ document.addEventListener("DOMContentLoaded", () => {
     const btnCloseModal = document.getElementById("btnCloseModal");
     const btnSaveConfig = document.getElementById("btnSaveConfig");
 
-    // Fetch initial Observability Stats
+    // Fetch initial Observability Stats & Saved Reels
+    function loadSavedReels() {
+        fetch("/api/list-reels")
+            .then(r => r.json())
+            .then(data => {
+                if (data.reels && data.reels.length > 0) {
+                    batchGalleryContainer.classList.remove("hidden");
+                    batchGrid.innerHTML = data.reels.map(item => `
+                        <div class="batch-item-card">
+                            <h5>🎬 ${item.title}</h5>
+                            <p>Tamaño: ${item.size_mb} MB | Creado: ${item.created_at}</p>
+                            <div style="display: flex; gap: 8px; margin-top: 8px;">
+                                <button class="btn btn-outline" style="flex: 1;" onclick="playBatchReel('${item.video_url}')">▶️ Ver</button>
+                                <a class="btn btn-primary" style="flex: 1; text-align: center; text-decoration: none;" href="${item.video_url}" download="${item.filename}">⬇️ Descargar</a>
+                            </div>
+                        </div>
+                    `).join("");
+                }
+            })
+            .catch(e => console.error("Error loading saved reels:", e));
+    }
+
     function updateObservabilityStats() {
         fetch("/api/observability-stats")
             .then(r => r.json())
@@ -45,6 +66,7 @@ document.addEventListener("DOMContentLoaded", () => {
             .catch(e => console.error("Error fetching obs stats:", e));
     }
     updateObservabilityStats();
+    loadSavedReels();
     setInterval(updateObservabilityStats, 10000);
 
     // Modal Events
@@ -171,7 +193,10 @@ document.addEventListener("DOMContentLoaded", () => {
                         <div class="batch-item-card">
                             <h5>${item.title}</h5>
                             <p>Render: ${item.render_time_sec}s | Costo: $${item.cost_usd.toFixed(5)}</p>
-                            <button class="btn btn-outline btn-block" onclick="playBatchReel('${item.video_url}')">▶️ Ver Reel</button>
+                            <div style="display: flex; gap: 8px; margin-top: 8px;">
+                                <button class="btn btn-outline" style="flex: 1;" onclick="playBatchReel('${item.video_url}')">▶️ Ver</button>
+                                <a class="btn btn-primary" style="flex: 1; text-align: center; text-decoration: none;" href="${item.video_url}" download="reel_batch_${item.id}.mp4">⬇️ Descargar</a>
+                            </div>
                         </div>
                     `).join("");
 

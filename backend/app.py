@@ -244,6 +244,26 @@ async def render_reel(req: RenderRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error durante el renderizado del video: {str(e)}")
 
+@app.get("/api/list-reels")
+def list_reels():
+    """Lists all rendered MP4 reels available in disk storage for persistent display across sessions."""
+    reels = []
+    if os.path.exists(OUTPUT_DIR):
+        for filename in sorted(os.listdir(OUTPUT_DIR), reverse=True):
+            if filename.endswith(".mp4"):
+                filepath = os.path.join(OUTPUT_DIR, filename)
+                stat = os.stat(filepath)
+                size_mb = round(stat.st_size / (1024 * 1024), 2)
+                mtime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime))
+                reels.append({
+                    "filename": filename,
+                    "title": filename.replace("_", " ").replace(".mp4", "").title(),
+                    "video_url": f"/api/download-reel-by-name/{filename}",
+                    "size_mb": size_mb,
+                    "created_at": mtime
+                })
+    return {"reels": reels}
+
 @app.get("/api/download-reel")
 def download_reel():
     reel_path = os.path.join(OUTPUT_DIR, "casino_reel.mp4")
