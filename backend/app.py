@@ -97,8 +97,10 @@ async def run_batch_generation_task(total_reels: int, api_key: str):
         batch_state["current_index"] = reel_num
         start_reel_time = time.time()
         
-        log_msg = f"🎬 Iniciando Reel #{reel_num}/{total_reels}..."
-        batch_state["logs"].append(f"[{time.strftime('%H:%M:%S')}] {log_msg}")
+        batch_state["logs"].append(f"[{time.strftime('%H:%M:%S')}] 🎬 Reel #{reel_num}/{total_reels}: Generando historia y guion con IA...")
+
+        def log_scene_step(sub_msg: str):
+            batch_state["logs"].append(f"[{time.strftime('%H:%M:%S')}] ⚙️ Reel #{reel_num}/{total_reels}: {sub_msg}")
 
         try:
             # 1. Generate Story & Scenes
@@ -108,9 +110,9 @@ async def run_batch_generation_task(total_reels: int, api_key: str):
             tokens = story_res.get("tokens_used", 450)
             cost = story_res.get("cost_usd", 0.00015)
             
-            # 2. Render Video Reel
+            # 2. Render Video Reel (Sequential Scene Processing to stay under 512MB RAM)
             filename = f"reel_batch_{reel_num}.mp4"
-            output_path = await MediaEngine.assemble_reel(scenes, output_filename=filename)
+            output_path = await MediaEngine.assemble_reel(scenes, output_filename=filename, log_callback=log_scene_step)
             duration_rendered = round(time.time() - start_reel_time, 2)
 
             batch_state["total_tokens_used"] += tokens
@@ -127,7 +129,7 @@ async def run_batch_generation_task(total_reels: int, api_key: str):
                 "cost_usd": cost
             }
             batch_state["completed_reels"].append(reel_data)
-            batch_state["logs"].append(f"[{time.strftime('%H:%M:%S')}] ✅ Reel #{reel_num} completado en {duration_rendered}s. Costo est: ${cost:.5f}")
+            batch_state["logs"].append(f"[{time.strftime('%H:%M:%S')}] ✅ Reel #{reel_num}/{total_reels} completado en {duration_rendered}s. Costo est: ${cost:.5f}")
         except Exception as e:
             batch_state["logs"].append(f"[{time.strftime('%H:%M:%S')}] ❌ Error en Reel #{reel_num}: {str(e)}")
 

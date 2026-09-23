@@ -166,14 +166,24 @@ class MediaEngine:
         return clip_video_path
 
     @classmethod
-    async def assemble_reel(cls, scenes: List[Scene], output_filename: str = "casino_reel.mp4") -> str:
-        """Stitches all scene video clips into the final vertical 9:16 Reel concurrently."""
-        temp_dir = os.path.join(config.OUTPUT_DIR, "temp_render")
+    async def assemble_reel(cls, scenes: List[Scene], output_filename: str = "casino_reel.mp4", log_callback=None) -> str:
+        """Stitches all scene video clips into the final vertical 9:16 Reel sequentially to prevent RAM OOM on 512MB instances."""
+        import shutil
+        import gc
+
+        temp_dir = os.path.join(config.OUTPUT_DIR, f"temp_render_{output_filename.replace('.mp4','')}")
         os.makedirs(temp_dir, exist_ok=True)
 
-        # Render all scene clips in parallel using asyncio.gather for 3x speedup
-        tasks = [cls.render_scene_video(scene, temp_dir) for scene in scenes]
-        clip_paths = await asyncio.gather(*tasks)
+        clip_paths = []
+        # Render scenes sequentially to stay under ~100MB RAM peak (prevents 512MB Render OOM)
+        for idx, scene in enumerate(scenes, 1):
+            if log_callback:
+                log_callback(f"Escena {idx}/{len(scenes)}: Voz TTS, efectos y video...")
+            clip_path = await cls.render_scene_video(scene, temp_dir)
+            clip_paths.append(clip_path)
+
+        if log_callback:
+            log_callback("Ensamblando clips finales con FFmpeg...")
 
         # Create concat list for FFmpeg
         list_txt_path = os.path.join(temp_dir, "concat_list.txt")
@@ -189,5 +199,14 @@ class MediaEngine:
             f"-c:v libx264 -preset ultrafast -crf 23 -c:a aac -b:a 192k {final_output_path}"
         )
         await asyncio.to_thread(subprocess.run, concat_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        # Cleanup temporary scene render files to keep disk space low and free RAM
+        try:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+        except Exception:
+            pass
+
+        # Force garbage collection to free RAM immediately
+        gc.collect()
 
         return final_output_path
