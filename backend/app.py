@@ -10,7 +10,7 @@ if backend_dir not in sys.path:
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 
@@ -19,6 +19,10 @@ from agents import StoryAgent, ScriptAgent, VisualDesignAgent, Scene, COMEDY_CAS
 from media_engine import MediaEngine
 
 app = FastAPI(title="Casino Reels Agent System API", version="2.0.0")
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return Response(status_code=204)
 
 # Serve frontend static assets
 FRONTEND_DIR = os.path.join(config.BASE_DIR, "frontend")

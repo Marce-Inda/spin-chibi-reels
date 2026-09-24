@@ -102,7 +102,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const openrouterKey = document.getElementById("openrouterKey").value;
         
         btnFastReel.disabled = true;
-        btnFastReel.querySelector(".btn-text").innerText = "⚡ Generando Reel Completo (4.3s)...";
+        btnFastReel.querySelector(".btn-text").innerText = "⚡ Generando Reel 3D Chibi con IA...";
 
         try {
             const res = await fetch("/api/generate-full-reel", {
@@ -122,9 +122,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 downloadBar.classList.remove("hidden");
                 downloadBtn.href = data.video_url;
                 
-                terminalLogs.innerHTML += `<div class="log-line">⚡ Reel individual generado en 4.3s.</div>`;
+                terminalLogs.innerHTML += `<div class="log-line">⚡ Reel individual 3D Chibi generado con éxito.</div>`;
                 terminalLogs.scrollTop = terminalLogs.scrollHeight;
                 updateObservabilityStats();
+                loadSavedReels();
             }
         } catch (e) {
             alert("Error en Reel Generator: " + e.message);
