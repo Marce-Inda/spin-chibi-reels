@@ -55,15 +55,39 @@ CHIBI_STYLE_BASELINE = (
 
 from script_database import get_script_by_index, VIRAL_CASINO_SCRIPTS, MASTER_CHIBI_STYLE
 
+def find_matching_script(user_idea: str) -> Optional[dict]:
+    """Matches a user prompt or preset chip directly to a script in the 30-script database."""
+    idea = user_idea.lower().strip()
+    if not idea:
+        return None
+    for script in VIRAL_CASINO_SCRIPTS:
+        if script["title"].lower() in idea or script["story_text"].lower() in idea or script["category"].lower() in idea:
+            return script
+        if "peluche" in idea or "peluches" in idea:
+            if script["id"] == 8:
+                return script
+        if "soda" in idea or "bebida" in idea or "refresco" in idea:
+            if script["id"] == 7:
+                return script
+        if "estornud" in idea:
+            if script["id"] == 1:
+                return script
+        if "tropez" in idea or "tropece" in idea or "baile" in idea:
+            if script["id"] == 2:
+                return script
+    return None
+
 class StoryAgent:
     """Generates funny casino stories featuring blunders leading to jackpot wins."""
     
     @staticmethod
     async def generate_story_and_script(user_idea: str = "", api_key: str = "", index: int = 0) -> Dict[str, Any]:
         """Loads curated AAA scripts from script_database or generates via LLM with 3D Chibi master prompts."""
-        # If no custom prompt, load directly from 30-script viral database (0 token cost, 100% quality)
-        if not user_idea.strip():
-            script_data = get_script_by_index(index)
+        # 1. Check if user prompt matches a script in our 30-script database
+        matched_script = find_matching_script(user_idea) if user_idea.strip() else None
+        
+        if matched_script or not user_idea.strip():
+            script_data = matched_script or get_script_by_index(index)
             scenes = [
                 Scene(
                     id=s["id"],
@@ -83,7 +107,7 @@ class StoryAgent:
                 "cost_usd": 0.0
             }
 
-        # If user provided a specific prompt idea, search if it matches a category/script or call LLM
+        # 2. If no exact database match, fallback to LLM generation
         effective_key = api_key or config.OPENROUTER_API_KEY or config.OPENAI_API_KEY
         if effective_key:
             prompt = (
