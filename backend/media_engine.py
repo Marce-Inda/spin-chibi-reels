@@ -146,11 +146,12 @@ class MediaEngine:
     async def generate_ai_chibi_frame(cls, scene: Scene, frame_path: str, api_key: str = ""):
         """Generates AAA 3D Chibi CGI Pixar/UE5 image using OpenRouter / Pollinations Flux API with seed consistency and local caching."""
         raw_prompt = scene.image_prompt or scene.visual_description
-        # Frontload realistic quality anchors and casino environment for maximum detail
+        # Frontload Chinese 3D Donghua CGI animation anchors for maximum detail
         prompt = (
-            f"hyperrealistic photorealistic 3D CGI render, Unreal Engine 5 cinematic screenshot, 8K resolution, sharp focus, "
-            f"inside glowing luxury Las Vegas casino floor with realistic neon 777 slot machines and gold coins, "
-            f"{raw_prompt}, raytraced volumetric lighting, 9:16 vertical ratio"
+            f"cinematic Chinese 3D Donghua CGI animation screenshot, Unreal Engine 5 aesthetic, "
+            f"highly detailed character with refined face features, detailed hair, natural skin texture, "
+            f"inside glowing luxury gold casino treasury with gold coins and neon 777 slot machines, "
+            f"{raw_prompt}, warm bokeh lighting, depth of field, 8K resolution, 9:16 vertical ratio"
         )
         cache_key = cls._get_hash(f"{prompt}_720x1280")
         cached_file = os.path.join(CACHE_DIR, f"img_{cache_key}.png")

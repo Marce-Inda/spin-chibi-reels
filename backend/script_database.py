@@ -9,11 +9,10 @@ Categorized into 5 high-engagement TikTok/Instagram Reels themes:
 """
 
 MASTER_CHIBI_STYLE = (
-    "hyperrealistic photorealistic 3D CGI render, Unreal Engine 5 cinematic screenshot, 8K resolution, "
-    "opulent luxury Las Vegas casino floor, realistic glowing golden 777 neon slot machines with spinning reels in background, "
-    "rain of shiny gold coins, realistic casino carpet, sparkling chandelier lights, sharp focus, "
-    "adorable realistic 3D character with glossy expressive eyes and fine skin texture, "
-    "cinematic volumetric lighting, raytracing reflections, vertical 9:16 aspect ratio"
+    "cinematic Chinese 3D Donghua CGI animation screenshot, Unreal Engine 5 aesthetic, "
+    "highly detailed Asian character with refined realistic face features, detailed hair strands, "
+    "natural skin texture, luxury gold casino hall background with heaps of shiny golden coins and ingots, "
+    "glowing neon 777 slot machines, warm cinematic bokeh lighting, depth of field, 8k resolution, vertical 9:16 aspect ratio"
 )
 
 
