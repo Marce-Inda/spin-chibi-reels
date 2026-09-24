@@ -242,39 +242,146 @@ class MediaEngine:
         cls.create_fallback_chibi_frame(scene, frame_path)
 
     @classmethod
+    async def generate_ai_video_clip(cls, scene: Scene, raw_video_path: str, api_key: str = "") -> bool:
+        """Generates a real 3D Donghua AI video clip using Wan 2.1 / MiniMax API via Fal.ai or Replicate or OpenRouter."""
+        raw_prompt = scene.image_prompt or scene.visual_description
+        prompt = (
+            f"cinematic Chinese 3D Donghua CGI animation clip, Unreal Engine 5 aesthetic, "
+            f"highly detailed character with refined facial features, detailed hair, natural skin texture, "
+            f"inside glowing luxury gold casino hall with heaps of shiny golden coins and ingots, neon 777 slot machines, "
+            f"{raw_prompt}, 9:16 vertical ratio, 8k resolution"
+        )
+        cache_key = cls._get_hash(f"vid_{prompt}_916")
+        cached_file = os.path.join(CACHE_DIR, f"vid_{cache_key}.mp4")
+
+        if os.path.exists(cached_file) and os.path.getsize(cached_file) > 100000:
+            subprocess.run(f"cp {cached_file} {raw_video_path}", shell=True)
+            return True
+
+        fal_key = config.FAL_API_KEY or (api_key if api_key.startswith("fal") else "")
+        replicate_key = config.REPLICATE_API_KEY or (api_key if api_key.startswith("r8_") else "")
+
+        # 1. Try Fal.ai Wan 2.1 / MiniMax Video API if Fal key present
+        if fal_key:
+            try:
+                async with httpx.AsyncClient(timeout=60.0) as client:
+                    headers = {
+                        "Authorization": f"Key {fal_key}",
+                        "Content-Type": "application/json"
+                    }
+                    payload = {
+                        "prompt": prompt,
+                        "aspect_ratio": "9:16"
+                    }
+                    model_endpoint = config.VIDEO_MODEL or "fal-ai/wan/v2.1/text-to-video"
+                    resp = await client.post(f"https://queue.fal.run/{model_endpoint}", headers=headers, json=payload)
+                    if resp.status_code in [200, 201, 202]:
+                        data = resp.json()
+                        request_id = data.get("request_id")
+                        status_url = data.get("response_url") or f"https://queue.fal.run/{model_endpoint}/requests/{request_id}"
+                        for _ in range(30):
+                            await asyncio.sleep(2.0)
+                            poll_resp = await client.get(status_url, headers=headers)
+                            if poll_resp.status_code == 200:
+                                poll_data = poll_resp.json()
+                                video_info = poll_data.get("video", {}) or poll_data.get("video_url")
+                                vid_url = ""
+                                if isinstance(video_info, dict):
+                                    vid_url = video_info.get("url", "")
+                                elif isinstance(video_info, str):
+                                    vid_url = video_info
+                                if vid_url:
+                                    v_dl = await client.get(vid_url)
+                                    if v_dl.status_code == 200 and len(v_dl.content) > 50000:
+                                        with open(raw_video_path, "wb") as f:
+                                            f.write(v_dl.content)
+                                        subprocess.run(f"cp {raw_video_path} {cached_file}", shell=True)
+                                        return True
+            except Exception as e:
+                print(f"Fal.ai Wan 2.1 Video API call failed: {e}")
+
+        # 2. Try Replicate Wan 2.1 API if Replicate key present
+        if replicate_key:
+            try:
+                async with httpx.AsyncClient(timeout=60.0) as client:
+                    headers = {
+                        "Authorization": f"Token {replicate_key}",
+                        "Content-Type": "application/json"
+                    }
+                    payload = {
+                        "version": "lucataco/wan-2.1-t2v-480p",
+                        "input": {"prompt": prompt, "aspect_ratio": "9:16"}
+                    }
+                    resp = await client.post("https://api.replicate.com/v1/predictions", headers=headers, json=payload)
+                    if resp.status_code in [200, 201]:
+                        pred = resp.json()
+                        get_url = pred.get("urls", {}).get("get")
+                        if get_url:
+                            for _ in range(30):
+                                await asyncio.sleep(2.0)
+                                poll = await client.get(get_url, headers=headers)
+                                if poll.status_code == 200:
+                                    p_data = poll.json()
+                                    if p_data.get("status") == "succeeded":
+                                        output = p_data.get("output")
+                                        vid_url = output[0] if isinstance(output, list) else output
+                                        if vid_url:
+                                            v_dl = await client.get(vid_url)
+                                            if v_dl.status_code == 200 and len(v_dl.content) > 50000:
+                                                with open(raw_video_path, "wb") as f:
+                                                    f.write(v_dl.content)
+                                                subprocess.run(f"cp {raw_video_path} {cached_file}", shell=True)
+                                                return True
+            except Exception as e:
+                print(f"Replicate Video API call failed: {e}")
+
+        return False
+
+    @classmethod
     async def render_scene_video(cls, scene: Scene, scene_dir: str, api_key: str = "") -> str:
         """Renders video clip for a single scene with AAA visuals & smooth dynamic camera motion."""
         frame_path = os.path.join(scene_dir, f"frame_{scene.id}.png")
+        raw_video_path = os.path.join(scene_dir, f"raw_video_{scene.id}.mp4")
         narration_path = os.path.join(scene_dir, f"audio_{scene.id}.mp3")
         sfx_path = os.path.join(scene_dir, f"sfx_{scene.id}.wav")
         clip_video_path = os.path.join(scene_dir, f"clip_{scene.id}.mp4")
 
-        # 1. Generate AAA 3D Chibi Image Visual & Audio concurrently
+        # 1. Try real AI video generation or fallback frame + TTS audio concurrently
+        has_real_video = await cls.generate_ai_video_clip(scene, raw_video_path, api_key=api_key)
+
         await asyncio.gather(
-            cls.generate_ai_chibi_frame(scene, frame_path, api_key=api_key),
+            cls.generate_ai_chibi_frame(scene, frame_path, api_key=api_key) if not has_real_video else asyncio.sleep(0),
             cls.generate_narration_audio(scene, narration_path),
             asyncio.to_thread(cls.generate_synthetic_audio_effect, scene.sound_effect, sfx_path)
         )
 
-        # 2. Optimized FFmpeg rendering with aspect-ratio crop to prevent stretching + dynamic camera zoompan
         duration = max(scene.duration, 3.5)
         safe_overlay = scene.text_overlay.replace("'", "").replace('"', "")
         
-        # Crop & scale to fit 720x1280 vertically without distorting geometry, then apply smooth zoompan
-        crop_scale = "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280"
-        if scene.id % 3 == 1:
-            motion_filter = f"{crop_scale},zoompan=z='min(zoom+0.0018,1.15)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=125:s=720x1280:fps=25"
-        elif scene.id % 3 == 2:
-            motion_filter = f"{crop_scale},zoompan=z='max(1.15-0.0018*on,1.0)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=125:s=720x1280:fps=25"
+        if has_real_video and os.path.exists(raw_video_path) and os.path.getsize(raw_video_path) > 50000:
+            # Apply audio narration, SFX, and text overlay on real Wan 2.1 AI video clip!
+            ffmpeg_cmd = (
+                f"ffmpeg -y -i {raw_video_path} -i {narration_path} -i {sfx_path} "
+                f"-filter_complex \"[0:v]scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,drawtext=text='{safe_overlay}':x=(w-text_w)/2:y=h-200:fontsize=38:fontcolor=yellow:box=1:boxcolor=black@0.7:boxborderw=10[v];"
+                f"[1:a][2:a]amix=inputs=2:duration=first[a]\" "
+                f"-map \"[v]\" -map \"[a]\" -c:v libx264 -preset ultrafast -crf 23 -pix_fmt yuv420p -t {duration} {clip_video_path}"
+            )
         else:
-            motion_filter = f"{crop_scale},zoompan=z='min(zoom+0.002,1.18)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=125:s=720x1280:fps=25"
+            # Crop & scale to fit 720x1280 vertically without distorting geometry, then apply smooth zoompan
+            crop_scale = "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280"
+            if scene.id % 3 == 1:
+                motion_filter = f"{crop_scale},zoompan=z='min(zoom+0.0018,1.15)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=125:s=720x1280:fps=25"
+            elif scene.id % 3 == 2:
+                motion_filter = f"{crop_scale},zoompan=z='max(1.15-0.0018*on,1.0)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=125:s=720x1280:fps=25"
+            else:
+                motion_filter = f"{crop_scale},zoompan=z='min(zoom+0.002,1.18)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=125:s=720x1280:fps=25"
 
-        ffmpeg_cmd = (
-            f"ffmpeg -y -loop 1 -i {frame_path} -i {narration_path} -i {sfx_path} "
-            f"-filter_complex \"[0:v]{motion_filter},drawtext=text='{safe_overlay}':x=(w-text_w)/2:y=h-200:fontsize=38:fontcolor=yellow:box=1:boxcolor=black@0.7:boxborderw=10[v];"
-            f"[1:a][2:a]amix=inputs=2:duration=first[a]\" "
-            f"-map \"[v]\" -map \"[a]\" -c:v libx264 -preset ultrafast -crf 23 -pix_fmt yuv420p -t {duration} {clip_video_path}"
-        )
+            ffmpeg_cmd = (
+                f"ffmpeg -y -loop 1 -i {frame_path} -i {narration_path} -i {sfx_path} "
+                f"-filter_complex \"[0:v]{motion_filter},drawtext=text='{safe_overlay}':x=(w-text_w)/2:y=h-200:fontsize=38:fontcolor=yellow:box=1:boxcolor=black@0.7:boxborderw=10[v];"
+                f"[1:a][2:a]amix=inputs=2:duration=first[a]\" "
+                f"-map \"[v]\" -map \"[a]\" -c:v libx264 -preset ultrafast -crf 23 -pix_fmt yuv420p -t {duration} {clip_video_path}"
+            )
         await asyncio.to_thread(subprocess.run, ffmpeg_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         return clip_video_path
