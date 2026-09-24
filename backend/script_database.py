@@ -9,11 +9,14 @@ Categorized into 5 high-engagement TikTok/Instagram Reels themes:
 """
 
 MASTER_CHIBI_STYLE = (
-    "3D chibi character render, Pixar and Unreal Engine 5 aesthetic, "
-    "huge expressive sparkling glossy eyes with star pupils, cute rosy cheeks, "
-    "modern luxury gala attire, vibrant glowing neon slot machine background, "
-    "8k resolution, Octane Render, vertical 9:16 aspect ratio, cinematic volumetric lighting"
+    "full wide cinematic shot inside an opulent luxury Las Vegas casino hall, "
+    "glowing golden 777 neon slot machines with spinning reels in background, "
+    "rain of shiny golden coins, luxury casino carpet, sparkling chandelier lights, "
+    "adorable 3D Chibi character with huge glossy sparkling star eyes and cute rosy cheeks, "
+    "Pixar and Unreal Engine 5 3D CGI render aesthetic, Octane Render 8K resolution, "
+    "vibrant neon lighting, cinematic volumetric depth of field, vertical 9:16 portrait ratio"
 )
+
 
 VIRAL_CASINO_SCRIPTS = [
     # -------------------------------------------------------------------------

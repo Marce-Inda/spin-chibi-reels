@@ -145,7 +145,12 @@ class MediaEngine:
     @classmethod
     async def generate_ai_chibi_frame(cls, scene: Scene, frame_path: str, api_key: str = ""):
         """Generates AAA 3D Chibi CGI Pixar/UE5 image using OpenRouter / Pollinations Flux API with seed consistency and local caching."""
-        prompt = scene.image_prompt or scene.visual_description
+        raw_prompt = scene.image_prompt or scene.visual_description
+        # Frontload casino background and Pixar UE5 quality anchors for maximum detail
+        prompt = (
+            f"3D Pixar UE5 render, high detail full shot inside a glowing luxury Las Vegas casino floor with neon 777 slot machines and gold coins, "
+            f"{raw_prompt}, Octane Render 8K, cinematic volumetric lighting, 9:16 portrait"
+        )
         cache_key = cls._get_hash(f"{prompt}_720x1280")
         cached_file = os.path.join(CACHE_DIR, f"img_{cache_key}.png")
 
@@ -167,7 +172,7 @@ class MediaEngine:
                     data = {
                         "model": config.IMAGE_MODEL or "black-forest-labs/flux-1-schnell",
                         "messages": [
-                            {"role": "user", "content": f"Generate 3D Chibi Pixar style image: {prompt}"}
+                            {"role": "user", "content": f"Generate 3D Chibi Pixar style casino image: {prompt}"}
                         ]
                     }
                     resp = await client.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
@@ -189,11 +194,11 @@ class MediaEngine:
             except Exception as e:
                 print(f"OpenRouter Image API call failed: {e}")
 
-        # 2. Multi-retry Flux API (Pollinations high-speed endpoint with retries and seed)
+        # 2. Multi-retry Flux API (Pollinations high-speed endpoint with retries, enhance and seed)
         import urllib.parse
         encoded_prompt = urllib.parse.quote(prompt)
         flux_urls = [
-            f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=720&height=1280&nologo=true&seed={seed}&model=flux",
+            f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=720&height=1280&nologo=true&seed={seed}&model=flux&enhance=true",
             f"https://gen.pollinations.ai/image/{encoded_prompt}?width=720&height=1280&seed={seed}"
         ]
 
@@ -216,7 +221,7 @@ class MediaEngine:
 
     @classmethod
     async def render_scene_video(cls, scene: Scene, scene_dir: str, api_key: str = "") -> str:
-        """Renders video clip for a single scene with AAA visuals & optimized FFmpeg encoding."""
+        """Renders video clip for a single scene with AAA visuals & smooth dynamic camera motion."""
         frame_path = os.path.join(scene_dir, f"frame_{scene.id}.png")
         narration_path = os.path.join(scene_dir, f"audio_{scene.id}.mp3")
         sfx_path = os.path.join(scene_dir, f"sfx_{scene.id}.wav")
@@ -229,13 +234,21 @@ class MediaEngine:
             asyncio.to_thread(cls.generate_synthetic_audio_effect, scene.sound_effect, sfx_path)
         )
 
-        # 2. Optimized FFmpeg rendering using ultrafast preset & dynamic text overlay
+        # 2. Optimized FFmpeg rendering using dynamic camera zoompan & text overlay
         duration = max(scene.duration, 3.5)
         safe_overlay = scene.text_overlay.replace("'", "").replace('"', "")
         
+        # Apply smooth dynamic camera motion per scene
+        if scene.id % 3 == 1:
+            motion_filter = "zoompan=z='min(zoom+0.0018,1.15)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=125:s=720x1280:fps=25"
+        elif scene.id % 3 == 2:
+            motion_filter = "zoompan=z='max(1.15-0.0018*on,1.0)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=125:s=720x1280:fps=25"
+        else:
+            motion_filter = "zoompan=z='min(zoom+0.002,1.18)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=125:s=720x1280:fps=25"
+
         ffmpeg_cmd = (
             f"ffmpeg -y -loop 1 -i {frame_path} -i {narration_path} -i {sfx_path} "
-            f"-filter_complex \"[0:v]scale=720:1280,drawtext=text='{safe_overlay}':x=(w-text_w)/2:y=h-200:fontsize=36:fontcolor=yellow:box=1:boxcolor=black@0.6:boxborderw=10[v];"
+            f"-filter_complex \"[0:v]{motion_filter},drawtext=text='{safe_overlay}':x=(w-text_w)/2:y=h-200:fontsize=38:fontcolor=yellow:box=1:boxcolor=black@0.7:boxborderw=10[v];"
             f"[1:a][2:a]amix=inputs=2:duration=first[a]\" "
             f"-map \"[v]\" -map \"[a]\" -c:v libx264 -preset ultrafast -crf 23 -pix_fmt yuv420p -t {duration} {clip_video_path}"
         )
