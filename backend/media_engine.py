@@ -146,10 +146,11 @@ class MediaEngine:
     async def generate_ai_chibi_frame(cls, scene: Scene, frame_path: str, api_key: str = ""):
         """Generates AAA 3D Chibi CGI Pixar/UE5 image using OpenRouter / Pollinations Flux API with seed consistency and local caching."""
         raw_prompt = scene.image_prompt or scene.visual_description
-        # Frontload casino background and Pixar UE5 quality anchors for maximum detail
+        # Frontload realistic quality anchors and casino environment for maximum detail
         prompt = (
-            f"3D Pixar UE5 render, high detail full shot inside a glowing luxury Las Vegas casino floor with neon 777 slot machines and gold coins, "
-            f"{raw_prompt}, Octane Render 8K, cinematic volumetric lighting, 9:16 portrait"
+            f"hyperrealistic photorealistic 3D CGI render, Unreal Engine 5 cinematic screenshot, 8K resolution, sharp focus, "
+            f"inside glowing luxury Las Vegas casino floor with realistic neon 777 slot machines and gold coins, "
+            f"{raw_prompt}, raytraced volumetric lighting, 9:16 vertical ratio"
         )
         cache_key = cls._get_hash(f"{prompt}_720x1280")
         cached_file = os.path.join(CACHE_DIR, f"img_{cache_key}.png")
@@ -234,17 +235,18 @@ class MediaEngine:
             asyncio.to_thread(cls.generate_synthetic_audio_effect, scene.sound_effect, sfx_path)
         )
 
-        # 2. Optimized FFmpeg rendering using dynamic camera zoompan & text overlay
+        # 2. Optimized FFmpeg rendering with aspect-ratio crop to prevent stretching + dynamic camera zoompan
         duration = max(scene.duration, 3.5)
         safe_overlay = scene.text_overlay.replace("'", "").replace('"', "")
         
-        # Apply smooth dynamic camera motion per scene
+        # Crop & scale to fit 720x1280 vertically without distorting geometry, then apply smooth zoompan
+        crop_scale = "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280"
         if scene.id % 3 == 1:
-            motion_filter = "zoompan=z='min(zoom+0.0018,1.15)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=125:s=720x1280:fps=25"
+            motion_filter = f"{crop_scale},zoompan=z='min(zoom+0.0018,1.15)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=125:s=720x1280:fps=25"
         elif scene.id % 3 == 2:
-            motion_filter = "zoompan=z='max(1.15-0.0018*on,1.0)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=125:s=720x1280:fps=25"
+            motion_filter = f"{crop_scale},zoompan=z='max(1.15-0.0018*on,1.0)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=125:s=720x1280:fps=25"
         else:
-            motion_filter = "zoompan=z='min(zoom+0.002,1.18)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=125:s=720x1280:fps=25"
+            motion_filter = f"{crop_scale},zoompan=z='min(zoom+0.002,1.18)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=125:s=720x1280:fps=25"
 
         ffmpeg_cmd = (
             f"ffmpeg -y -loop 1 -i {frame_path} -i {narration_path} -i {sfx_path} "

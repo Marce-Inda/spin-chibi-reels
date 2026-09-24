@@ -46,11 +46,9 @@ COMEDY_CASINO_PREMISES = [
 ]
 
 CHIBI_STYLE_BASELINE = (
-    "full wide cinematic shot inside a breathtaking luxury Las Vegas casino floor, "
-    "glowing neon 777 slot machines, sparkling golden lights, gold coins raining, "
-    "adorable 3D chibi character, Pixar and Unreal Engine 5 3D CGI aesthetic, "
-    "huge expressive sparkling glossy eyes with star pupils, cute rosy cheeks, "
-    "modern high-end gala attire, Octane Render 8k resolution, cinematic lighting, vertical 9:16 ratio"
+    "hyperrealistic photorealistic 3D CGI render, Unreal Engine 5 cinematic screenshot, 8K resolution, "
+    "breathtaking luxury Las Vegas casino floor, glowing neon 777 slot machines, realistic gold coins raining, "
+    "adorable 3D character with glossy eyes, sharp focus, cinematic volumetric lighting, raytracing, vertical 9:16 ratio"
 )
 
 from script_database import get_script_by_index, VIRAL_CASINO_SCRIPTS, MASTER_CHIBI_STYLE
