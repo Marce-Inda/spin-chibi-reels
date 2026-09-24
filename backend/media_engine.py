@@ -174,25 +174,45 @@ class MediaEngine:
                     data = {
                         "model": config.IMAGE_MODEL or "black-forest-labs/flux-1-schnell",
                         "messages": [
-                            {"role": "user", "content": f"Generate 3D Chibi Pixar style casino image: {prompt}"}
-                        ]
+                            {"role": "user", "content": f"Generate 3D Chinese Donghua CGI animation screenshot: {prompt}"}
+                        ],
+                        "modalities": ["image", "text"]
                     }
                     resp = await client.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
                     if resp.status_code == 200:
                         json_data = resp.json()
                         choices = json_data.get("choices", [])
                         if choices:
-                            content = choices[0].get("message", {}).get("content", "")
-                            import re
-                            urls = re.findall(r'https?://[^\s<>"]+|www\.[^\s<>"]+', content)
-                            if urls:
-                                img_url = urls[0]
-                                img_resp = await client.get(img_url)
-                                if img_resp.status_code == 200 and len(img_resp.content) > 10000:
+                            msg = choices[0].get("message", {})
+                            images = msg.get("images", [])
+                            img_url = ""
+                            if images and isinstance(images, list):
+                                first = images[0]
+                                if isinstance(first, dict):
+                                    img_url = first.get("url", "")
+                                elif isinstance(first, str):
+                                    img_url = first
+                            if not img_url:
+                                content = msg.get("content", "")
+                                import re
+                                urls = re.findall(r'https?://[^\s<>"]+|www\.[^\s<>"]+', content)
+                                if urls:
+                                    img_url = urls[0]
+                            if img_url:
+                                if img_url.startswith("data:image"):
+                                    import base64
+                                    b64_data = img_url.split(",")[1]
                                     with open(frame_path, "wb") as f:
-                                        f.write(img_resp.content)
+                                        f.write(base64.b64decode(b64_data))
                                     subprocess.run(f"cp {frame_path} {cached_file}", shell=True)
                                     return
+                                else:
+                                    img_resp = await client.get(img_url)
+                                    if img_resp.status_code == 200 and len(img_resp.content) > 10000:
+                                        with open(frame_path, "wb") as f:
+                                            f.write(img_resp.content)
+                                        subprocess.run(f"cp {frame_path} {cached_file}", shell=True)
+                                        return
             except Exception as e:
                 print(f"OpenRouter Image API call failed: {e}")
 
