@@ -143,8 +143,8 @@ class MediaEngine:
             subprocess.run(f"cp {output_sfx_path} {cached_file}", shell=True)
 
     @classmethod
-    async def generate_ai_chibi_frame(cls, scene: Scene, frame_path: str):
-        """Generates AAA 3D Chibi CGI Pixar/UE5 image using FAL/Replicate/Flux API with local disk caching."""
+    async def generate_ai_chibi_frame(cls, scene: Scene, frame_path: str, api_key: str = ""):
+        """Generates AAA 3D Chibi CGI Pixar/UE5 image using OpenRouter / Pollinations Flux API with seed consistency and local caching."""
         prompt = scene.image_prompt or scene.visual_description
         cache_key = cls._get_hash(f"{prompt}_720x1280")
         cached_file = os.path.join(CACHE_DIR, f"img_{cache_key}.png")
@@ -153,27 +153,69 @@ class MediaEngine:
             subprocess.run(f"cp {cached_file} {frame_path}", shell=True)
             return
 
-        # Try FAL.ai / Replicate / Pollinations Flux API if key available or public endpoint
+        effective_key = api_key or config.OPENROUTER_API_KEY or config.OPENAI_API_KEY
+        seed = scene.id * 777 + 101
+
+        # 1. Try OpenRouter Image Generation API if API Key is configured
+        if effective_key:
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    headers = {
+                        "Authorization": f"Bearer {effective_key}",
+                        "Content-Type": "application/json"
+                    }
+                    data = {
+                        "model": config.IMAGE_MODEL or "black-forest-labs/flux-1-schnell",
+                        "messages": [
+                            {"role": "user", "content": f"Generate 3D Chibi Pixar style image: {prompt}"}
+                        ]
+                    }
+                    resp = await client.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
+                    if resp.status_code == 200:
+                        json_data = resp.json()
+                        choices = json_data.get("choices", [])
+                        if choices:
+                            content = choices[0].get("message", {}).get("content", "")
+                            import re
+                            urls = re.findall(r'https?://[^\s<>"]+|www\.[^\s<>"]+', content)
+                            if urls:
+                                img_url = urls[0]
+                                img_resp = await client.get(img_url)
+                                if img_resp.status_code == 200 and len(img_resp.content) > 10000:
+                                    with open(frame_path, "wb") as f:
+                                        f.write(img_resp.content)
+                                    subprocess.run(f"cp {frame_path} {cached_file}", shell=True)
+                                    return
+            except Exception as e:
+                print(f"OpenRouter Image API call failed: {e}")
+
+        # 2. Multi-retry Flux API (Pollinations high-speed endpoint with retries and seed)
         import urllib.parse
         encoded_prompt = urllib.parse.quote(prompt)
-        flux_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=720&height=1280&nologo=true&seed={scene.id * 777}"
+        flux_urls = [
+            f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=720&height=1280&nologo=true&seed={seed}&model=flux",
+            f"https://gen.pollinations.ai/image/{encoded_prompt}?width=720&height=1280&seed={seed}"
+        ]
 
-        try:
-            async with httpx.AsyncClient(timeout=25.0) as client:
-                resp = await client.get(flux_url)
-                if resp.status_code == 200 and len(resp.content) > 10000:
-                    with open(frame_path, "wb") as f:
-                        f.write(resp.content)
-                    subprocess.run(f"cp {frame_path} {cached_file}", shell=True)
-                    return
-        except Exception as e:
-            print(f"Flux image API call failed, falling back to local renderer: {e}")
+        for flux_url in flux_urls:
+            for attempt in range(2):
+                try:
+                    async with httpx.AsyncClient(timeout=30.0) as client:
+                        resp = await client.get(flux_url)
+                        if resp.status_code == 200 and len(resp.content) > 10000:
+                            with open(frame_path, "wb") as f:
+                                f.write(resp.content)
+                            subprocess.run(f"cp {frame_path} {cached_file}", shell=True)
+                            return
+                except Exception as e:
+                    print(f"Flux API attempt {attempt+1} failed for {flux_url}: {e}")
+                    await asyncio.sleep(1.0)
 
-        # Local rendering fallback
+        # 3. Local high-end fallback
         cls.create_fallback_chibi_frame(scene, frame_path)
 
     @classmethod
-    async def render_scene_video(cls, scene: Scene, scene_dir: str) -> str:
+    async def render_scene_video(cls, scene: Scene, scene_dir: str, api_key: str = "") -> str:
         """Renders video clip for a single scene with AAA visuals & optimized FFmpeg encoding."""
         frame_path = os.path.join(scene_dir, f"frame_{scene.id}.png")
         narration_path = os.path.join(scene_dir, f"audio_{scene.id}.mp3")
@@ -182,7 +224,7 @@ class MediaEngine:
 
         # 1. Generate AAA 3D Chibi Image Visual & Audio concurrently
         await asyncio.gather(
-            cls.generate_ai_chibi_frame(scene, frame_path),
+            cls.generate_ai_chibi_frame(scene, frame_path, api_key=api_key),
             cls.generate_narration_audio(scene, narration_path),
             asyncio.to_thread(cls.generate_synthetic_audio_effect, scene.sound_effect, sfx_path)
         )
@@ -202,7 +244,7 @@ class MediaEngine:
         return clip_video_path
 
     @classmethod
-    async def assemble_reel(cls, scenes: List[Scene], output_filename: str = "casino_reel.mp4", log_callback=None) -> str:
+    async def assemble_reel(cls, scenes: List[Scene], output_filename: str = "casino_reel.mp4", log_callback=None, api_key: str = "") -> str:
         """Stitches all scene video clips into the final vertical 9:16 Reel sequentially to prevent RAM OOM on 512MB instances."""
         import shutil
         import gc
@@ -215,7 +257,7 @@ class MediaEngine:
         for idx, scene in enumerate(scenes, 1):
             if log_callback:
                 log_callback(f"Escena {idx}/{len(scenes)}: Voz TTS, efectos y video...")
-            clip_path = await cls.render_scene_video(scene, temp_dir)
+            clip_path = await cls.render_scene_video(scene, temp_dir, api_key=api_key)
             clip_paths.append(clip_path)
 
         if log_callback:

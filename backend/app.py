@@ -112,7 +112,7 @@ async def run_batch_generation_task(total_reels: int, api_key: str):
             
             # 2. Render Video Reel (Sequential Scene Processing to stay under 512MB RAM)
             filename = f"reel_batch_{reel_num}.mp4"
-            output_path = await MediaEngine.assemble_reel(scenes, output_filename=filename, log_callback=log_scene_step)
+            output_path = await MediaEngine.assemble_reel(scenes, output_filename=filename, log_callback=log_scene_step, api_key=api_key)
             duration_rendered = round(time.time() - start_reel_time, 2)
 
             batch_state["total_tokens_used"] += tokens
@@ -214,7 +214,7 @@ async def generate_full_reel(req: StoryRequest):
     try:
         story_and_script = await StoryAgent.generate_story_and_script(user_idea=req.user_prompt, api_key=req.api_key)
         scenes = VisualDesignAgent.generate_prompts(story_and_script.get("scenes", []))
-        output_file = await MediaEngine.assemble_reel(scenes, output_filename="casino_reel.mp4")
+        output_file = await MediaEngine.assemble_reel(scenes, output_filename="casino_reel.mp4", api_key=req.api_key)
         return {
             "status": "success",
             "story_text": story_and_script.get("story_text", ""),
