@@ -2,9 +2,79 @@
 let currentStory = "";
 let currentScenes = [];
 let batchPollInterval = null;
+let scriptDatabase = {};
+let selectedScriptText = "";
 
 function setPrompt(text) {
     document.getElementById("userPrompt").value = text;
+}
+
+function loadScriptDatabase() {
+    fetch("/api/script-database")
+        .then(r => r.json())
+        .then(data => {
+            scriptDatabase = data.categories || {};
+            const categories = Object.keys(scriptDatabase);
+            if (categories.length > 0) {
+                renderCategoryTabs(categories);
+                selectCategory(categories[0]);
+            }
+        })
+        .catch(e => console.error("Error loading script DB:", e));
+}
+
+function renderCategoryTabs(categories) {
+    const tabsContainer = document.getElementById("categoryTabs");
+    if (!tabsContainer) return;
+    const catIcons = {
+        "Equivocaciones Cómicas": "🎭",
+        "Confusiones Millonarias": "🏧",
+        "Suerte Absurda": "🍀",
+        "Glamour & Distracciones": "💎",
+        "Aciertos Inesperados": "🎯"
+    };
+    tabsContainer.innerHTML = categories.map(cat => `
+        <button class="cat-tab" data-cat="${cat}" onclick="selectCategory('${cat}')">
+            ${catIcons[cat] || "🎬"} ${cat}
+        </button>
+    `).join("");
+}
+
+function selectCategory(catName) {
+    document.querySelectorAll(".cat-tab").forEach(tab => {
+        if (tab.getAttribute("data-cat") === catName) {
+            tab.classList.add("active");
+        } else {
+            tab.classList.remove("active");
+        }
+    });
+
+    const scripts = scriptDatabase[catName] || [];
+    const grid = document.getElementById("categoryScriptsGrid");
+    if (!grid) return;
+
+    grid.innerHTML = scripts.map((s) => `
+        <div class="script-card ${selectedScriptText === s.story_text ? 'selected' : ''}" onclick="selectScriptCard(this, ${s.id}, \`${escapeStr(s.story_text)}\`)">
+            <div class="script-card-title">
+                <span>📌 #${s.id} ${s.title}</span>
+            </div>
+            <div class="script-card-text">${s.story_text}</div>
+        </div>
+    `).join("");
+}
+
+function escapeStr(str) {
+    return str.replace(/`/g, '\\`').replace(/\$/g, '\\$');
+}
+
+function selectScriptCard(cardEl, scriptId, storyText) {
+    document.querySelectorAll(".script-card").forEach(c => c.classList.remove("selected"));
+    cardEl.classList.add("selected");
+    selectedScriptText = storyText;
+    const promptInput = document.getElementById("userPrompt");
+    if (promptInput) {
+        promptInput.value = storyText;
+    }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -33,6 +103,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const btnConfigModal = document.getElementById("btnConfigModal");
     const btnCloseModal = document.getElementById("btnCloseModal");
     const btnSaveConfig = document.getElementById("btnSaveConfig");
+
+    // Load Script Database for Category Selector UI
+    loadScriptDatabase();
 
     // Fetch initial Observability Stats & Saved Reels
     function loadSavedReels() {

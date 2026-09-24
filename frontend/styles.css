@@ -266,6 +266,119 @@ textarea:focus, input:focus {
     box-shadow: 0 0 12px rgba(157, 78, 221, 0.3);
 }
 
+/* Category & Script Selector */
+.section-label {
+    display: block;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+}
+
+.category-tabs {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    scrollbar-width: thin;
+}
+
+.cat-tab {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-card);
+    color: #ccc;
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+.cat-tab:hover {
+    border-color: var(--primary);
+    color: #fff;
+}
+
+.cat-tab.active {
+    background: linear-gradient(135deg, #7b2cbf, #9d4edd);
+    border-color: var(--primary);
+    color: #fff;
+    box-shadow: 0 0 12px rgba(157, 78, 221, 0.4);
+}
+
+.category-scripts-container {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    max-height: 260px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+@media (max-width: 600px) {
+    .category-scripts-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+.script-card {
+    background: rgba(15, 10, 28, 0.85);
+    border: 1px solid var(--border-card);
+    border-radius: 10px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.script-card:hover {
+    border-color: var(--gold);
+    transform: translateY(-2px);
+    background: rgba(30, 20, 50, 0.9);
+}
+
+.script-card.selected {
+    border: 2px solid var(--gold);
+    background: rgba(45, 30, 70, 0.95);
+    box-shadow: 0 0 14px rgba(255, 215, 0, 0.3);
+}
+
+.script-card-title {
+    font-weight: 700;
+    font-size: 0.88rem;
+    color: #fff;
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.script-card-text {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.35;
+}
+
+.custom-prompt-details {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-card);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+}
+
+.custom-prompt-details summary {
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+}
+
 .divider {
     display: flex;
     align-items: center;

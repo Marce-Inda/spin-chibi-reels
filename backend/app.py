@@ -24,6 +24,23 @@ app = FastAPI(title="Casino Reels Agent System API", version="2.0.0")
 def favicon():
     return Response(status_code=204)
 
+@app.get("/api/script-database")
+def get_script_database():
+    """Returns grouped categories and scripts from the 30-script database for the frontend selector."""
+    from script_database import VIRAL_CASINO_SCRIPTS
+    categories = {}
+    for s in VIRAL_CASINO_SCRIPTS:
+        cat = s["category"]
+        if cat not in categories:
+            categories[cat] = []
+        categories[cat].append({
+            "id": s["id"],
+            "title": s["title"],
+            "story_text": s["story_text"],
+            "hashtags": s.get("hashtags", [])
+        })
+    return {"categories": categories, "total_scripts": len(VIRAL_CASINO_SCRIPTS)}
+
 # Serve frontend static assets
 FRONTEND_DIR = os.path.join(config.BASE_DIR, "frontend")
 OUTPUT_DIR = config.OUTPUT_DIR
