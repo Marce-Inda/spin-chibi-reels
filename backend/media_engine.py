@@ -3,6 +3,7 @@ import sys
 import hashlib
 import subprocess
 import asyncio
+import httpx
 from typing import List
 from PIL import Image, ImageDraw, ImageFont
 import edge_tts
@@ -128,11 +129,16 @@ class MediaEngine:
         elif effect_type == "panic_gasp":
             cmd = f"ffmpeg -y -f lavfi -i 'sine=frequency=800:duration=0.5' -af 'vibrato=f=8:d=0.5' {output_sfx_path}"
         elif effect_type == "jackpot_coins":
-            cmd = f"ffmpeg -y -f lavfi -i 'sine=frequency=987.77:duration=1.5' -af 'sequence=frequencies=523.25|659.25|783.99|1046.5:durations=0.2' {output_sfx_path}"
+            cmd = f"ffmpeg -y -f lavfi -i 'sine=frequency=880:duration=1.0' -af 'tremolo=f=12:d=0.8' {output_sfx_path}"
         else:
             cmd = f"ffmpeg -y -f lavfi -i 'sine=frequency=500:duration=0.5' {output_sfx_path}"
             
         subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        if not os.path.exists(output_sfx_path) or os.path.getsize(output_sfx_path) == 0:
+            fallback_cmd = f"ffmpeg -y -f lavfi -i 'anullsrc=r=24000:cl=mono' -t 0.5 {output_sfx_path}"
+            subprocess.run(fallback_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
         if os.path.exists(output_sfx_path):
             subprocess.run(f"cp {output_sfx_path} {cached_file}", shell=True)
 

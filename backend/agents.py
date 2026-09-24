@@ -3,7 +3,7 @@ import sys
 import json
 import httpx
 import random
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 
 backend_dir = os.path.dirname(os.path.abspath(__file__))
